@@ -71,12 +71,38 @@ function findFinish(score,requireDouble=false,maxDarts=3){
 
 const CHECKOUTS={170:"T20 T20 Bull",167:"T20 T19 Bull",164:"T20 T18 Bull",161:"T20 T17 Bull",160:"T20 T20 D20",156:"T20 T20 D18",152:"T20 T20 D16",148:"T20 T16 D20",144:"T20 T20 D12",140:"T20 T20 D10",136:"T20 T20 D8",132:"T20 T16 D12",128:"T18 T18 D10",124:"T20 T16 D8",120:"T20 S20 D20",116:"T20 S16 D20",112:"T20 S12 D20",108:"T20 S8 D20",104:"T18 S10 D20",100:"T20 D20",98:"T20 D19",97:"T19 D20",96:"T20 D18",95:"T19 D19",94:"T18 D20",93:"T19 D18",92:"T20 D16",91:"T17 D20",90:"T18 D18",89:"T19 D16",88:"T16 D20",87:"T17 D18",86:"T18 D16",85:"T15 D20",84:"T20 D12",83:"T17 D16",82:"T14 D20",81:"T19 D12",80:"T20 D10",79:"T13 D20",78:"T18 D12",77:"T19 D10",76:"T20 D8",75:"T17 D12",74:"T14 D16",73:"T19 D8",72:"T16 D12",71:"T13 D16",70:"T18 D8",69:"T19 D6",68:"T20 D4",67:"T17 D8",66:"T10 D18",65:"T15 D10",64:"T16 D8",63:"T13 D12",62:"T10 D16",61:"T15 D8",60:"S20 D20",59:"S19 D20",58:"S18 D20",57:"S17 D20",56:"S16 D20",55:"S15 D20",54:"S14 D20",53:"S13 D20",52:"S12 D20",51:"S11 D20",50:"S10 D20",49:"S9 D20",48:"S16 D16",47:"S15 D16",46:"S14 D16",45:"S13 D16",44:"S12 D16",43:"S11 D16",42:"S10 D16",41:"S9 D16",40:"D20",38:"D19",36:"D18",34:"D17",32:"D16",30:"D15",28:"D14",26:"D13",24:"D12",22:"D11",20:"D10",18:"D9",16:"D8",14:"D7",12:"D6",10:"D5",8:"D4",6:"D3",4:"D2",2:"D1"};
 
-let profiles=load("ft_profiles",[
+const DEFAULT_PROFILES=[
   {id:"fabien",name:"Fabien",avatar:"F",elo:1000,wins:0,losses:0,matches:0,totalScore:0,totalTurns:0,bestTurn:0,doublesHit:0,doublesAttempted:0},
   {id:"thibault",name:"Thibault",avatar:"T",elo:1000,wins:0,losses:0,matches:0,totalScore:0,totalTurns:0,bestTurn:0,doublesHit:0,doublesAttempted:0}
-]);
+];
+
+let profiles=load("ft_profiles",DEFAULT_PROFILES);
+
+if(!Array.isArray(profiles)||profiles.length===0){
+  profiles=structuredClone(DEFAULT_PROFILES);
+  localStorage.setItem("ft_profiles",JSON.stringify(profiles));
+}else{
+  profiles=profiles
+    .filter(p=>p&&typeof p.id==="string"&&typeof p.name==="string"&&p.name.trim())
+    .map(p=>({
+      elo:1000,wins:0,losses:0,matches:0,totalScore:0,totalTurns:0,
+      bestTurn:0,doublesHit:0,doublesAttempted:0,
+      avatar:(p.name||"?")[0]?.toUpperCase()||"?",
+      ...p
+    }));
+
+  if(profiles.length===0){
+    profiles=structuredClone(DEFAULT_PROFILES);
+    localStorage.setItem("ft_profiles",JSON.stringify(profiles));
+  }
+}
+
 let matches=load("ft_matches",[]);
-let selectedPlayerIds=["fabien","thibault"];
+if(!Array.isArray(matches))matches=[];
+
+let selectedPlayerIds=profiles
+  .slice(0,Math.min(2,profiles.length))
+  .map(p=>p.id);
 let mode="501",startRule="free",finishRule="free",starterRule="random",computerLevel="easy",mult="S";
 let options={handsFree:true,voiceAnnounce:true,finishAdvice:true};
 let game=null,pending=[],online=false,roomCode="",myClientId="",dbApi=null,roomRef=null,unsubscribe=null,recognition=null,voiceLoop=false,computerThinking=false;
@@ -84,6 +110,19 @@ let centerState={index:0,points:[],current:null,zoom:1,onlineIntent:false};
 
 function saveLocal(){localStorage.setItem("ft_profiles",JSON.stringify(profiles));localStorage.setItem("ft_matches",JSON.stringify(matches))}
 function load(key,fallback){try{return JSON.parse(localStorage.getItem(key))||fallback}catch{return fallback}}
+function ensureProfiles(){
+  if(!Array.isArray(profiles)||profiles.length===0){
+    profiles=structuredClone(DEFAULT_PROFILES);
+    saveLocal();
+  }
+
+  selectedPlayerIds=selectedPlayerIds.filter(id=>profiles.some(p=>p.id===id));
+
+  if(selectedPlayerIds.length===0&&profiles.length){
+    selectedPlayerIds=[profiles[0].id];
+  }
+}
+
 function profile(id){return profiles.find(p=>p.id===id)}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function code6(){return Math.random().toString(36).slice(2,8).toUpperCase()}
@@ -161,29 +200,103 @@ $("#voiceAnnounce").addEventListener("change",e=>options.voiceAnnounce=e.target.
 $("#finishAdvice").addEventListener("change",e=>options.finishAdvice=e.target.checked);
 
 function renderPlayerSelector(){
-  $("#playerSelector").innerHTML=selectedPlayerIds.map((id,i)=>{
+  ensureProfiles();
+
+  const selector=$("#playerSelector");
+  if(!selector)return;
+
+  selector.innerHTML=selectedPlayerIds.map((id,i)=>{
     const p=profile(id)||profiles[0];
-    return `<div class="player-select-row"><div class="avatar">${p.avatar||p.name[0]}</div><select data-index="${i}">${profiles.map(x=>`<option value="${x.id}" ${x.id===id?"selected":""}>${x.name}</option>`).join("")}</select><button class="remove" data-index="${i}" ${selectedPlayerIds.length<=1?"disabled":""}>✕</button></div>`;
+    if(!p)return"";
+
+    const avatar=p.avatar||p.name?.[0]?.toUpperCase()||"?";
+    const optionsHtml=profiles.map(x=>
+      `<option value="${x.id}" ${x.id===p.id?"selected":""}>${x.name}</option>`
+    ).join("");
+
+    return `<div class="player-select-row">
+      <div class="avatar">${avatar}</div>
+      <select data-index="${i}">${optionsHtml}</select>
+      <button class="remove" data-index="${i}" ${selectedPlayerIds.length<=1?"disabled":""}>✕</button>
+    </div>`;
   }).join("");
-  document.querySelectorAll("#playerSelector select").forEach(s=>s.addEventListener("change",e=>{selectedPlayerIds[+e.target.dataset.index]=e.target.value;renderPlayerSelector()}));
-  document.querySelectorAll("#playerSelector .remove").forEach(b=>b.addEventListener("click",()=>{
-    if(selectedPlayerIds.length<=1)return;
-    selectedPlayerIds.splice(+b.dataset.index,1);
-    renderPlayerSelector();
-  }));
+
+  document.querySelectorAll("#playerSelector select").forEach(select=>{
+    select.addEventListener("change",event=>{
+      selectedPlayerIds[+event.target.dataset.index]=event.target.value;
+      renderPlayerSelector();
+    });
+  });
+
+  document.querySelectorAll("#playerSelector .remove").forEach(button=>{
+    button.addEventListener("click",()=>{
+      if(selectedPlayerIds.length<=1)return;
+      selectedPlayerIds.splice(+button.dataset.index,1);
+      renderPlayerSelector();
+    });
+  });
 }
-$("#addPlayer").addEventListener("click",()=>{if(selectedPlayerIds.length<8){selectedPlayerIds.push(profiles[0].id);renderPlayerSelector()}});
+
+$("#addPlayer").addEventListener("click",()=>{
+  ensureProfiles();
+
+  if(selectedPlayerIds.length>=8)return;
+
+  const availableProfile=profiles.find(p=>!selectedPlayerIds.includes(p.id))||profiles[0];
+  if(!availableProfile)return;
+
+  selectedPlayerIds.push(availableProfile.id);
+  renderPlayerSelector();
+});
+
 renderPlayerSelector();
 
 $("#newProfile").addEventListener("click",()=>{$("#profileName").value="";$("#profileAvatar").value="";$("#profileDialog").showModal()});
-$("#saveProfile").addEventListener("click",e=>{
-  e.preventDefault();const name=$("#profileName").value.trim();if(!name)return;
-  profiles.push({id:uid(),name,avatar:$("#profileAvatar").value.trim()||name[0].toUpperCase(),elo:1000,wins:0,losses:0,matches:0,totalScore:0,totalTurns:0,bestTurn:0,doublesHit:0,doublesAttempted:0});
-  saveLocal();$("#profileDialog").close();renderProfiles();renderPlayerSelector();
+$("#saveProfile").addEventListener("click",event=>{
+  event.preventDefault();
+
+  const name=$("#profileName").value.trim();
+  if(!name)return;
+
+  const newProfile={
+    id:uid(),
+    name,
+    avatar:$("#profileAvatar").value.trim()||name[0].toUpperCase(),
+    elo:1000,
+    wins:0,
+    losses:0,
+    matches:0,
+    totalScore:0,
+    totalTurns:0,
+    bestTurn:0,
+    doublesHit:0,
+    doublesAttempted:0
+  };
+
+  profiles.push(newProfile);
+
+  if(selectedPlayerIds.length===0){
+    selectedPlayerIds=[newProfile.id];
+  }
+
+  saveLocal();
+  $("#profileDialog").close();
+  renderProfiles();
+  renderPlayerSelector();
 });
 function renderProfiles(){
   $("#profilesList").innerHTML=profiles.map(p=>`<div class="profile-row"><div class="avatar">${p.avatar}</div><div><strong>${p.name}</strong><p class="hint">Elo ${p.elo} · ${p.wins} V / ${p.losses} D</p></div><button class="secondary delete-profile" data-id="${p.id}">Supprimer</button></div>`).join("");
-  document.querySelectorAll(".delete-profile").forEach(b=>b.addEventListener("click",()=>{if(profiles.length<=2)return alert("Garde au moins deux profils.");profiles=profiles.filter(p=>p.id!==b.dataset.id);selectedPlayerIds=selectedPlayerIds.filter(id=>id!==b.dataset.id);saveLocal();renderProfiles();renderPlayerSelector()}));
+  document.querySelectorAll(".delete-profile").forEach(button=>button.addEventListener("click",()=>{
+    if(profiles.length<=1)return alert("Garde au moins un profil.");
+
+    profiles=profiles.filter(p=>p.id!==button.dataset.id);
+    selectedPlayerIds=selectedPlayerIds.filter(id=>id!==button.dataset.id);
+
+    ensureProfiles();
+    saveLocal();
+    renderProfiles();
+    renderPlayerSelector();
+  }));
 }
 
 function startScore(){return mode==="cricket"||mode==="world"?0:Number(mode)}
