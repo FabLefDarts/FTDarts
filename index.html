@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080b10">
+<title>FT Darts Caméra</title>
+<style>
+:root{--bg:#080b10;--panel:#111720;--panel2:#18202c;--border:#283447;--text:#f4f7fb;--muted:#93a0b4;--red:#e83e43;--blue:#277bef;--green:#31d17c;--yellow:#f2c85b}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(#080b10,#111927);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:760px;margin:auto;padding:16px 14px 40px}h1,h2,p{margin:0}.brand{display:flex;align-items:center;gap:12px;margin:4px 0 16px}
+.logo{width:58px;height:58px;border-radius:50%;background:#fff;border:7px solid var(--red);display:grid;place-items:center;color:#111;font-size:21px;font-weight:950}
+h1{font-style:italic;font-size:30px}.sub,.muted{color:var(--muted)}.panel{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:15px;margin-bottom:12px}
+button,input{font:inherit;border-radius:12px;border:1px solid var(--border);padding:13px;background:var(--panel2);color:#fff}
+button{cursor:pointer;font-weight:850}.primary{background:var(--red);border:0}.blue{background:var(--blue);border:0}.green{background:var(--green);color:#052415;border:0}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.videoWrap{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:3/4}
+video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}#overlay{pointer-events:none}
+.controls{display:grid;gap:10px}.control{display:grid;grid-template-columns:100px 1fr 54px;gap:8px;align-items:center}.value{text-align:right;color:var(--yellow);font-weight:850}
+.result{display:grid;grid-template-columns:1fr 1fr;gap:8px}.metric{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center}
+.big{font-size:28px;font-weight:950}.status{min-height:24px;color:var(--muted);text-align:center;margin-top:10px}.hidden{display:none!important}
+.step{padding:10px 0;border-bottom:1px solid var(--border)}.step:last-child{border:0}.tip{color:var(--yellow)}
+@media(max-width:520px){.actions,.result{grid-template-columns:1fr}.control{grid-template-columns:88px 1fr 48px}}
+</style>
+</head>
+<body>
+<main>
+<div class="brand"><div class="logo">FT</div><div><h1>FT DARTS CAMÉRA</h1><p class="sub">Prototype de détection d’impact</p></div></div>
+
+<section class="panel">
+  <div class="step"><b>1.</b> Fixe le téléphone face à la cible et démarre la caméra arrière.</div>
+  <div class="step"><b>2.</b> Ajuste le cercle bleu pour qu’il épouse exactement le bord jouable de la cible.</div>
+  <div class="step"><b>3.</b> Appuie sur « Photo de référence », puis lance une seule fléchette sans déplacer le téléphone.</div>
+  <div class="step"><b>4.</b> Appuie sur « Détecter la fléchette ».</div>
+  <p class="tip" style="margin-top:10px">Cette première version sert à mesurer la fiabilité sur ta cible réelle avant le mode entièrement automatique.</p>
+</section>
+
+<section class="panel">
+  <div class="videoWrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="work" class="hidden"></canvas>
+    <canvas id="overlay"></canvas>
+  </div>
+  <p id="status" class="status">Caméra non démarrée.</p>
+</section>
+
+<section class="panel controls">
+  <h2>Calibration de la cible</h2>
+  <label class="control"><span>Centre X</span><input id="cx" type="range" min="20" max="80" value="50"><span id="cxv" class="value">50%</span></label>
+  <label class="control"><span>Centre Y</span><input id="cy" type="range" min="20" max="80" value="50"><span id="cyv" class="value">50%</span></label>
+  <label class="control"><span>Diamètre</span><input id="diam" type="range" min="30" max="95" value="75"><span id="diamv" class="value">75%</span></label>
+  <label class="control"><span>Sensibilité</span><input id="threshold" type="range" min="15" max="100" value="45"><span id="thresholdv" class="value">45</span></label>
+</section>
+
+<section class="panel">
+  <div class="actions">
+    <button id="startCamera" class="blue">Démarrer la caméra</button>
+    <button id="reference" class="primary" disabled>Photo de référence</button>
+    <button id="detect" class="green" disabled>Détecter la fléchette</button>
+    <button id="reset">Réinitialiser</button>
+  </div>
+</section>
+
+<section id="resultPanel" class="panel hidden">
+  <h2>Impact détecté</h2>
+  <div class="result" style="margin-top:12px">
+    <div class="metric"><span class="muted">Zone estimée</span><div id="zone" class="big">—</div></div>
+    <div class="metric"><span class="muted">Score estimé</span><div id="score" class="big">—</div></div>
+    <div class="metric"><span class="muted">Distance au centre</span><div id="distance" class="big">—</div></div>
+    <div class="metric"><span class="muted">Pixels modifiés</span><div id="pixels" class="big">—</div></div>
+  </div>
+  <p class="muted" style="margin-top:10px">Le repère jaune montre le centre de la zone ayant le plus changé entre les deux images.</p>
+</section>
+
+<canvas id="referenceCanvas" class="hidden"></canvas>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const video=$("#video"),overlay=$("#overlay"),ctxO=overlay.getContext("2d");
+const work=$("#work"),ctxW=work.getContext("2d"),referenceCanvas=$("#referenceCanvas"),ctxR=referenceCanvas.getContext("2d");
+let stream=null,hasReference=false,lastPoint=null;
+
+const boardOrder=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+
+function setStatus(text){$("#status").textContent=text}
+function dimensions(){
+  const rect=video.getBoundingClientRect();
+  overlay.width=Math.max(1,Math.round(rect.width*devicePixelRatio));
+  overlay.height=Math.max(1,Math.round(rect.height*devicePixelRatio));
+  ctxO.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  return rect;
+}
+function calibration(){
+  const rect=dimensions();
+  return {
+    x:rect.width*(+$("#cx").value/100),
+    y:rect.height*(+$("#cy").value/100),
+    r:Math.min(rect.width,rect.height)*(+$("#diam").value/100)/2,
+    w:rect.width,h:rect.height
+  }
+}
+function drawOverlay(){
+  const c=calibration();ctxO.clearRect(0,0,c.w,c.h);
+  ctxO.strokeStyle="#277bef";ctxO.lineWidth=3;ctxO.beginPath();ctxO.arc(c.x,c.y,c.r,0,Math.PI*2);ctxO.stroke();
+  ctxO.strokeStyle="#ffffff88";ctxO.lineWidth=1;
+  ctxO.beginPath();ctxO.moveTo(c.x-c.r,c.y);ctxO.lineTo(c.x+c.r,c.y);ctxO.moveTo(c.x,c.y-c.r);ctxO.lineTo(c.x,c.y+c.r);ctxO.stroke();
+  if(lastPoint){
+    ctxO.fillStyle="#f2c85b";ctxO.strokeStyle="#fff";ctxO.lineWidth=2;
+    ctxO.beginPath();ctxO.arc(lastPoint.x,lastPoint.y,9,0,Math.PI*2);ctxO.fill();ctxO.stroke();
+  }
+}
+function updateLabels(){
+  ["cx","cy","diam"].forEach(id=>$("#"+id+"v").textContent=$("#"+id).value+"%");
+  $("#thresholdv").textContent=$("#threshold").value;drawOverlay()
+}
+["cx","cy","diam","threshold"].forEach(id=>$("#"+id).addEventListener("input",updateLabels));
+window.addEventListener("resize",drawOverlay);
+
+async function startCamera(){
+  try{
+    if(!navigator.mediaDevices?.getUserMedia)throw new Error("Caméra non disponible dans ce navigateur.");
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    video.srcObject=stream;await video.play();
+    $("#reference").disabled=false;setStatus("Caméra active. Calibre le cercle bleu sur la cible.");drawOverlay()
+  }catch(e){setStatus("Impossible d’ouvrir la caméra : "+e.message)}
+}
+function capture(canvas,ctx){
+  const vw=video.videoWidth,vh=video.videoHeight;
+  if(!vw||!vh)throw new Error("La vidéo n’est pas encore prête.");
+  const targetW=640,targetH=Math.round(targetW*vh/vw);
+  canvas.width=targetW;canvas.height=targetH;
+  ctx.drawImage(video,0,0,targetW,targetH);
+}
+function takeReference(){
+  try{
+    capture(referenceCanvas,ctxR);hasReference=true;lastPoint=null;$("#detect").disabled=false;$("#resultPanel").classList.add("hidden");
+    setStatus("Référence enregistrée. Lance une seule fléchette, sans toucher au téléphone.")
+  }catch(e){setStatus(e.message)}
+}
+function estimateZone(nx,ny,nr){
+  const distance=Math.sqrt(nx*nx+ny*ny);
+  if(distance<=0.037)return {label:"Bull",score:50};
+  if(distance<=0.092)return {label:"Outer Bull",score:25};
+  let angle=Math.atan2(nx,-ny)*180/Math.PI;if(angle<0)angle+=360;
+  const sector=Math.floor((angle+9)/18)%20;
+  const number=boardOrder[sector];
+  let mult="S",score=number;
+  if(distance>=0.58&&distance<=0.66){mult="T";score=number*3}
+  else if(distance>=0.93&&distance<=1.0){mult="D";score=number*2}
+  return {label:mult+number,score};
+}
+function detectImpact(){
+  if(!hasReference)return;
+  try{
+    capture(work,ctxW);
+    if(work.width!==referenceCanvas.width||work.height!==referenceCanvas.height)throw new Error("Dimensions incompatibles.");
+    const before=ctxR.getImageData(0,0,work.width,work.height);
+    const after=ctxW.getImageData(0,0,work.width,work.height);
+    const rect=video.getBoundingClientRect(),cal=calibration();
+    const sx=work.width/rect.width,sy=work.height/rect.height,cx=cal.x*sx,cy=cal.y*sy,r=cal.r*Math.min(sx,sy);
+    const threshold=+$("#threshold").value;
+    let sumX=0,sumY=0,sumWeight=0,count=0;
+    const block=3;
+    for(let y=0;y<work.height;y+=block){
+      for(let x=0;x<work.width;x+=block){
+        const dx=x-cx,dy=y-cy;if(dx*dx+dy*dy>r*r)continue;
+        let diff=0;
+        for(let oy=0;oy<block&&y+oy<work.height;oy++){
+          for(let ox=0;ox<block&&x+ox<work.width;ox++){
+            const i=((y+oy)*work.width+(x+ox))*4;
+            diff+=(Math.abs(after.data[i]-before.data[i])+Math.abs(after.data[i+1]-before.data[i+1])+Math.abs(after.data[i+2]-before.data[i+2]))/3;
+          }
+        }
+        diff/=block*block;
+        if(diff>threshold){sumX+=x*diff;sumY+=y*diff;sumWeight+=diff;count++}
+      }
+    }
+    if(count<8||!sumWeight){setStatus("Aucun impact net détecté. Essaie d’augmenter l’éclairage ou de diminuer la sensibilité.");return}
+    const px=sumX/sumWeight,py=sumY/sumWeight;
+    const nx=(px-cx)/r,ny=(py-cy)/r,d=Math.sqrt(nx*nx+ny*ny);
+    const zone=estimateZone(nx,ny,d);
+    lastPoint={x:px/sx,y:py/sy};drawOverlay();
+    $("#zone").textContent=zone.label;$("#score").textContent=zone.score;
+    $("#distance").textContent=(d*100).toFixed(1)+" %";$("#pixels").textContent=count;
+    $("#resultPanel").classList.remove("hidden");
+    setStatus("Impact estimé. Vérifie le repère jaune, puis reprends une référence avant la fléchette suivante.")
+  }catch(e){setStatus("Erreur de détection : "+e.message)}
+}
+function reset(){
+  hasReference=false;lastPoint=null;$("#detect").disabled=true;$("#resultPanel").classList.add("hidden");setStatus(stream?"Caméra active. Reprends une photo de référence.":"Caméra non démarrée.");drawOverlay()
+}
+$("#startCamera").addEventListener("click",startCamera);
+$("#reference").addEventListener("click",takeReference);
+$("#detect").addEventListener("click",detectImpact);
+$("#reset").addEventListener("click",reset);
+updateLabels();
+</script>
+</body>
+</html>
