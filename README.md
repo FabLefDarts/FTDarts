@@ -1,29 +1,24 @@
-# FT Darts V5.8 — Calcul automatique des finishes
+# FT Darts V5.8.5 — Mode solo
 
-## Nouvelle fonctionnalité
+Pour jouer seul :
+1. Supprime le deuxième joueur avec la croix.
+2. Garde uniquement ton profil.
+3. Choisis le mode.
+4. Appuie sur « Jouer sur ce téléphone ».
 
-FT Darts recherche automatiquement une combinaison de sortie en une, deux ou trois fléchettes.
+Le badge SOLO apparaît pendant la partie.
 
-Le calcul respecte la règle choisie :
-- Finish libre : la dernière fléchette peut être un simple, un double, un triple ou une Bull.
-- Double-out : la dernière fléchette doit être un double ou la Bull intérieure à 50.
+Modes compatibles :
+- 201
+- 301
+- 501
+- Cricket
+- Tour du monde
 
-Exemple :
-- 141 → T20 · T19 · D12
-- 100 → T20 · D20
-- 40 → D20
+Le jeu en ligne reste limité à exactement deux joueurs.
 
-Lorsqu'aucune combinaison n'existe, FT Darts affiche :
-- Pas de finish en 3 flèches
-- ou Pas de finish double-out en 3 flèches
+## GitHub
 
-L'annonce vocale indique également le finish possible au début du tour.
+Remplace tous les fichiers par ceux de cette archive, puis ouvre :
 
-## Mise à jour GitHub
-
-Remplace tous les fichiers du ZIP.
-
-Après le commit, ouvre :
-https://fablefdarts.github.io/FTDarts/?v=58
-
-Teste d'abord dans un onglet privé.
+https://fablefdarts.github.io/FTDarts/?v=585

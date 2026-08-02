@@ -140,10 +140,14 @@ $("#finishAdvice").addEventListener("change",e=>options.finishAdvice=e.target.ch
 function renderPlayerSelector(){
   $("#playerSelector").innerHTML=selectedPlayerIds.map((id,i)=>{
     const p=profile(id)||profiles[0];
-    return `<div class="player-select-row"><div class="avatar">${p.avatar||p.name[0]}</div><select data-index="${i}">${profiles.map(x=>`<option value="${x.id}" ${x.id===id?"selected":""}>${x.name}</option>`).join("")}</select><button class="remove" data-index="${i}">✕</button></div>`;
+    return `<div class="player-select-row"><div class="avatar">${p.avatar||p.name[0]}</div><select data-index="${i}">${profiles.map(x=>`<option value="${x.id}" ${x.id===id?"selected":""}>${x.name}</option>`).join("")}</select><button class="remove" data-index="${i}" ${selectedPlayerIds.length<=1?"disabled":""}>✕</button></div>`;
   }).join("");
   document.querySelectorAll("#playerSelector select").forEach(s=>s.addEventListener("change",e=>{selectedPlayerIds[+e.target.dataset.index]=e.target.value;renderPlayerSelector()}));
-  document.querySelectorAll("#playerSelector .remove").forEach(b=>b.addEventListener("click",()=>{if(selectedPlayerIds.length<=2)return;selectedPlayerIds.splice(+b.dataset.index,1);renderPlayerSelector()}));
+  document.querySelectorAll("#playerSelector .remove").forEach(b=>b.addEventListener("click",()=>{
+    if(selectedPlayerIds.length<=1)return;
+    selectedPlayerIds.splice(+b.dataset.index,1);
+    renderPlayerSelector();
+  }));
 }
 $("#addPlayer").addEventListener("click",()=>{if(selectedPlayerIds.length<8){selectedPlayerIds.push(profiles[0].id);renderPlayerSelector()}});
 renderPlayerSelector();
@@ -181,7 +185,7 @@ function createGame(ids,clients=[]){
 
 $("#startLocal").addEventListener("click",()=>{online=false;beginGameCreation(false)});
 $("#createOnline").addEventListener("click",async()=>{
-  if(selectedPlayerIds.length!==2)return alert("La partie en ligne fonctionne pour deux joueurs.");
+  if(selectedPlayerIds.length!==2)return alert("La partie en ligne nécessite exactement deux joueurs. Pour jouer seul, utilise « Jouer sur ce téléphone ».");
   if(!await loadFirebase()){return $("#onlineStatus").textContent="Configure Firebase dans firebase-config.js pour activer le jeu en ligne."}
   beginGameCreation(true);
 });
@@ -343,11 +347,12 @@ function advice(){
 }
 function renderGame(){
   $("#gameTitle").textContent=game.mode==="cricket"?"CRICKET":game.mode==="world"?"TOUR DU MONDE":game.mode;
+  const soloLabel=game.players.length===1?" · Entraînement solo":"";
   $("#gameRules").textContent=
-    game.mode==="cricket"?"Règles Cricket":
-    game.mode==="world"?"1 à 20 puis Bull · "+(game.starterRule==="center"?"Centre":"Aléatoire"):
-    `${game.startRule==="free"?"Début libre":"Double-in"} · ${game.finishRule==="free"?"Finish libre":"Double-out"} · ${game.starterRule==="center"?"Centre":"Aléatoire"}`;
-  $("#connectionBadge").textContent=online?roomCode:"LOCAL";
+    game.mode==="cricket"?"Règles Cricket"+soloLabel:
+    game.mode==="world"?"1 à 20 puis Bull"+soloLabel:
+    `${game.startRule==="free"?"Début libre":"Double-in"} · ${game.finishRule==="free"?"Finish libre":"Double-out"}${soloLabel}`;
+  $("#connectionBadge").textContent=online?roomCode:(game.players.length===1?"SOLO":"LOCAL");
   $("#currentPlayer").textContent=game.winner!==null?`${game.players[game.winner].name} gagne !`:game.players[game.current].name;
   $("#checkoutAdvice").textContent=game.winner!==null?"Terminé":advice();
   $("#entryPanel").classList.toggle("hidden",!myTurn()||game.winner!==null);
@@ -360,7 +365,14 @@ function renderGame(){
   if(game.mode!=="cricket"&&game.mode!=="world"){
     $("#scoreboard").innerHTML=game.players.map((p,i)=>`<div class="score-card ${game.current===i&&game.winner===null?"active":""}"><strong>${p.name}</strong><div class="score-value">${p.score}</div><div class="player-meta">${p.opened?"Ouvert":"Double requis"} · Moy. ${p.turns?(p.total/p.turns).toFixed(1):"0,0"}</div></div>`).join("");
   }else if(game.mode==="cricket"){
-    $("#cricketBoard").innerHTML=`<div class="cricket-row"><strong>${game.players[0].name}</strong><strong>Cible</strong><strong>${game.players[1].name}</strong></div>`+TARGETS.map(t=>`<div class="cricket-row"><span class="mark">${marks(game.players[0].marks[t])}</span><strong>${t}</strong><span class="mark">${marks(game.players[1].marks[t])}</span></div>`).join("")+`<div class="cricket-row"><strong>${game.players[0].score} pts</strong><strong>Score</strong><strong>${game.players[1].score} pts</strong></div>`;
+    if(game.players.length===1){
+      const p=game.players[0];
+      $("#cricketBoard").innerHTML=`<div class="cricket-row"><strong>${p.name}</strong><strong>Cible</strong><strong>Marques</strong></div>`+
+        TARGETS.map(t=>`<div class="cricket-row"><span></span><strong>${t}</strong><span class="mark">${marks(p.marks[t])}</span></div>`).join("")+
+        `<div class="cricket-row"><strong>${p.score} pts</strong><strong>Score</strong><span></span></div>`;
+    }else{
+      $("#cricketBoard").innerHTML=`<div class="cricket-row"><strong>${game.players[0].name}</strong><strong>Cible</strong><strong>${game.players[1].name}</strong></div>`+TARGETS.map(t=>`<div class="cricket-row"><span class="mark">${marks(game.players[0].marks[t])}</span><strong>${t}</strong><span class="mark">${marks(game.players[1].marks[t])}</span></div>`).join("")+`<div class="cricket-row"><strong>${game.players[0].score} pts</strong><strong>Score</strong><strong>${game.players[1].score} pts</strong></div>`;
+    }
   }else{
     $("#worldBoard").innerHTML=game.players.map((p,i)=>{
       const target=WORLD_TARGETS[p.worldIndex];
@@ -448,7 +460,10 @@ async function commitTurn(){
   }else if(game.mode==="cricket"){
     let gained=0,hits=0;darts.forEach(d=>{let t=null,v=0,c=0;if(d.zone===25){t="BULL";v=25;c=d.mult==="D"?2:1}else if(d.zone>=15&&d.zone<=20){t=String(d.zone);v=d.zone;c=MULT[d.mult]}if(!t)return;hits+=c;const need=Math.max(0,3-p.marks[t]),close=Math.min(need,c);p.marks[t]+=close;const extra=c-close;const anyOpen=game.players.some((op,idx)=>idx!==pi&&op.marks[t]<3);if(extra>0&&anyOpen){p.score+=extra*v;gained+=extra*v}});
     p.turns++;p.total+=hits;p.bestTurn=Math.max(p.bestTurn,hits);game.history.push({name:p.name,darts,label:gained?`+${gained} pts`:`${hits} marque(s)`,snapshot});
-    const closed=TARGETS.every(t=>p.marks[t]>=3),top=p.score>=Math.max(...game.players.filter((_,i)=>i!==pi).map(x=>x.score));if(closed&&top)game.winner=pi;else game.current=oi;
+    const closed=TARGETS.every(t=>p.marks[t]>=3);
+    const opponentScores=game.players.filter((_,i)=>i!==pi).map(x=>x.score);
+    const top=opponentScores.length===0||p.score>=Math.max(...opponentScores);
+    if(closed&&top)game.winner=pi;else game.current=oi;
   }else{
     let scoring=darts;
     if(!p.opened){const idx=darts.findIndex(d=>d.mult==="D");if(idx===-1)scoring=[];else{p.opened=true;scoring=darts.slice(idx)}}
@@ -460,7 +475,7 @@ async function commitTurn(){
     if(!bust&&remain===0)game.winner=pi;else game.current=oi;
   }
   pending=[];await saveGame();
-  if(game.winner!==null){finishMatch();announce(`${game.players[game.winner].name} gagne la partie`);voiceLoop=false;destroyRecognition();setVoiceState(VoiceState.IDLE,"Partie terminée")}
+  if(game.winner!==null){finishMatch();announce(game.players.length===1?`${game.players[game.winner].name}, entraînement terminé`:`${game.players[game.winner].name} gagne la partie`);voiceLoop=false;destroyRecognition();setVoiceState(VoiceState.IDLE,"Partie terminée")}
   else{if(!voiceLoop)announceTurn()}
 }
 $("#undoTurn").addEventListener("click",async()=>{if(!game.history.length)return;const last=game.history.at(-1);if(online&&last.snapshot.players[last.snapshot.current]?.clientId!==myClientId)return alert("Seul le joueur concerné peut annuler.");pending=last.darts;game=last.snapshot;await saveGame()});
