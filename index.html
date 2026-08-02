@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#080b10">
-<title>FT Darts Caméra V2</title>
+<title>FT Darts Caméra V3</title>
 <style>
-:root{--bg:#080b10;--panel:#111720;--panel2:#18202c;--border:#283447;--text:#f4f7fb;--muted:#93a0b4;--red:#e83e43;--blue:#277bef;--green:#31d17c;--yellow:#f2c85b}
+:root{--bg:#080b10;--panel:#111720;--panel2:#18202c;--border:#283447;--text:#f4f7fb;--muted:#93a0b4;--red:#e83e43;--blue:#277bef;--green:#31d17c;--yellow:#f2c85b;--cyan:#25d7ff}
 *{box-sizing:border-box}body{margin:0;background:linear-gradient(#080b10,#111927);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif}
 main{max-width:760px;margin:auto;padding:16px 14px 40px}h1,h2,h3,p{margin:0}.brand{display:flex;align-items:center;gap:12px;margin:4px 0 16px}
 .logo{width:58px;height:58px;border-radius:50%;background:#fff;border:7px solid var(--red);display:grid;place-items:center;color:#111;font-size:21px;font-weight:950}
@@ -16,65 +16,77 @@ button{cursor:pointer;font-weight:850}.primary{background:var(--red);border:0}.b
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cameraBox{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:3/4}
 video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.hidden{display:none!important}
 .status{min-height:22px;color:var(--muted);text-align:center;margin-top:10px}.step{padding:9px 0;border-bottom:1px solid var(--border)}.step:last-child{border:0}
-.calGrid{display:grid;gap:10px}.control{display:grid;grid-template-columns:90px 1fr 54px;align-items:center;gap:8px}.value{text-align:right;color:var(--yellow);font-weight:850}
+.calList{display:grid;gap:8px}.calItem{display:flex;align-items:center;justify-content:space-between;background:var(--panel2);padding:11px;border-radius:12px}
+.badge{padding:5px 8px;border-radius:99px;background:#293345}.done{background:var(--green);color:#062415}
 .result{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.metric{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center}.big{font-size:28px;font-weight:950}
-.modeRow{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mode.on{background:var(--blue)}.tip{color:var(--yellow);margin-top:10px}
-.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}.yellow{background:var(--yellow)}.cyan{background:#29d9ff}
-@media(max-width:520px){.grid2,.result,.modeRow{grid-template-columns:1fr}.control{grid-template-columns:80px 1fr 48px}}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}.yellow{background:var(--yellow)}.cyan{background:var(--cyan)}.magenta{background:#ff49d6}
+.tip{color:var(--yellow);margin-top:10px}.controls{display:grid;gap:10px}.control{display:grid;grid-template-columns:110px 1fr 54px;gap:8px;align-items:center}.value{text-align:right;color:var(--yellow);font-weight:850}
+@media(max-width:520px){.grid2,.result{grid-template-columns:1fr}.control{grid-template-columns:90px 1fr 48px}}
 </style>
 </head>
 <body>
 <main>
-<div class="brand"><div class="logo">FT</div><div><h1>FT DARTS CAMÉRA V2</h1><p class="sub">Détection assistée et correction tactile</p></div></div>
+<div class="brand"><div class="logo">FT</div><div><h1>FT DARTS CAMÉRA V3</h1><p class="sub">Calibration libre + détection de l’axe</p></div></div>
 
 <section class="panel">
-  <div class="step"><b>1.</b> Place le téléphone face à la cible, sans angle important.</div>
-  <div class="step"><b>2.</b> Ajuste le cercle bleu et la rotation pour aligner le 20 en haut.</div>
-  <div class="step"><b>3.</b> Prends une référence, puis lance une fléchette.</div>
-  <div class="step"><b>4.</b> Lance la détection. Si le point proposé est faux, touche directement la pointe de la fléchette sur l’image.</div>
-  <p class="tip">La correction tactile est volontaire : elle permet déjà d’obtenir un score fiable avec un seul téléphone.</p>
+  <div class="step"><b>1.</b> Place le téléphone où tu veux, mais garde toute la cible visible.</div>
+  <div class="step"><b>2.</b> Calibre quatre points : haut du double 20, droite, bas et gauche.</div>
+  <div class="step"><b>3.</b> Prends une référence sans fléchette, puis lance une seule fléchette.</div>
+  <div class="step"><b>4.</b> L’algorithme détecte la forme ajoutée, calcule son axe et propose une pointe.</div>
+  <p class="tip">Le téléphone peut changer de place, mais il faut refaire la calibration à chaque déplacement.</p>
 </section>
 
 <section class="panel">
   <div class="cameraBox" id="cameraBox">
     <video id="video" autoplay playsinline muted></video>
-    <canvas id="snapshot" class="hidden"></canvas>
+    <canvas id="work" class="hidden"></canvas>
     <canvas id="overlay"></canvas>
   </div>
   <div class="legend" style="margin-top:10px">
-    <span><i class="dot yellow"></i>Impact sélectionné</span>
-    <span><i class="dot cyan"></i>Impact proposé automatiquement</span>
+    <span><i class="dot cyan"></i>Axe détecté</span>
+    <span><i class="dot magenta"></i>Deux extrémités possibles</span>
+    <span><i class="dot yellow"></i>Pointe retenue/corrigée</span>
   </div>
-  <p id="status" class="status">Démarre la caméra pour commencer.</p>
+  <p id="status" class="status">Démarre la caméra.</p>
 </section>
 
-<section class="panel calGrid">
-  <h2>Calibration</h2>
-  <label class="control"><span>Centre X</span><input id="cx" type="range" min="20" max="80" value="50"><span id="cxv" class="value">50%</span></label>
-  <label class="control"><span>Centre Y</span><input id="cy" type="range" min="20" max="80" value="50"><span id="cyv" class="value">50%</span></label>
-  <label class="control"><span>Diamètre</span><input id="diam" type="range" min="35" max="95" value="76"><span id="diamv" class="value">76%</span></label>
-  <label class="control"><span>Rotation</span><input id="rotation" type="range" min="-18" max="18" step="0.5" value="0"><span id="rotationv" class="value">0°</span></label>
-  <label class="control"><span>Sensibilité</span><input id="threshold" type="range" min="10" max="120" value="35"><span id="thresholdv" class="value">35</span></label>
+<section class="panel">
+  <h2>Calibration à 4 points</h2>
+  <p class="muted" style="margin-top:8px">Appuie sur un bouton, puis touche le bord extérieur de l’anneau double correspondant.</p>
+  <div class="calList" style="margin-top:12px">
+    <button class="calItem calBtn" data-key="top"><span>1. Haut — double 20</span><span id="topState" class="badge">À faire</span></button>
+    <button class="calItem calBtn" data-key="right"><span>2. Droite — bord à 3 h</span><span id="rightState" class="badge">À faire</span></button>
+    <button class="calItem calBtn" data-key="bottom"><span>3. Bas — bord à 6 h</span><span id="bottomState" class="badge">À faire</span></button>
+    <button class="calItem calBtn" data-key="left"><span>4. Gauche — bord à 9 h</span><span id="leftState" class="badge">À faire</span></button>
+  </div>
+</section>
+
+<section class="panel controls">
+  <h2>Réglages</h2>
+  <label class="control"><span>Sensibilité</span><input id="threshold" type="range" min="8" max="110" value="28"><span id="thresholdV" class="value">28</span></label>
+  <label class="control"><span>Taille minimale</span><input id="minPixels" type="range" min="10" max="250" value="45"><span id="minPixelsV" class="value">45</span></label>
+  <label class="control"><span>Choix pointe</span><input id="endpointBias" type="range" min="-100" max="100" value="20"><span id="endpointBiasV" class="value">20</span></label>
+  <p class="muted">Le dernier réglage aide à choisir entre les deux extrémités de l’axe. Tu peux toujours toucher la vraie pointe.</p>
 </section>
 
 <section class="panel">
   <div class="grid2">
-    <button id="startCamera" class="blue">1. Démarrer la caméra</button>
-    <button id="takeReference" class="primary" disabled>2. Photo de référence</button>
-    <button id="detect" class="green" disabled>3. Détecter après lancer</button>
-    <button id="clearPoint">Effacer le point</button>
+    <button id="startCamera" class="blue">Démarrer la caméra</button>
+    <button id="reference" class="primary" disabled>Photo de référence</button>
+    <button id="detect" class="green" disabled>Détecter la fléchette</button>
+    <button id="swapEndpoint">Choisir l’autre extrémité</button>
   </div>
 </section>
 
 <section id="resultPanel" class="panel hidden">
-  <h2>Résultat</h2>
+  <h2>Résultat estimé</h2>
   <div class="result" style="margin-top:12px">
     <div class="metric"><span class="muted">Zone</span><div id="zone" class="big">—</div></div>
     <div class="metric"><span class="muted">Score</span><div id="score" class="big">—</div></div>
-    <div class="metric"><span class="muted">Distance au centre</span><div id="distance" class="big">—</div></div>
-    <div class="metric"><span class="muted">Confiance auto</span><div id="confidence" class="big">—</div></div>
+    <div class="metric"><span class="muted">Distance centre</span><div id="distance" class="big">—</div></div>
+    <div class="metric"><span class="muted">Confiance</span><div id="confidence" class="big">—</div></div>
   </div>
-  <p class="muted" style="margin-top:10px">Tu peux toucher l’image à tout moment pour déplacer le point jaune sur la vraie pointe.</p>
+  <p class="muted" style="margin-top:10px">Si le point jaune n’est pas sur la pointe, touche directement la pointe sur l’image.</p>
 </section>
 
 <canvas id="referenceCanvas" class="hidden"></canvas>
@@ -83,9 +95,11 @@ video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.
 <script>
 const $=s=>document.querySelector(s);
 const video=$("#video"),overlay=$("#overlay"),ctx=overlay.getContext("2d");
-const snap=$("#snapshot"),ctxS=snap.getContext("2d"),refCanvas=$("#referenceCanvas"),ctxR=refCanvas.getContext("2d");
-let stream=null,referenceReady=false,manualPoint=null,autoPoint=null,latestFrame=null;
-const order=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+const work=$("#work"),ctxW=work.getContext("2d"),referenceCanvas=$("#referenceCanvas"),ctxR=referenceCanvas.getContext("2d");
+let stream=null,referenceReady=false,activeCal=null;
+let calPoints={top:null,right:null,bottom:null,left:null};
+let axis=null,endpoints=null,selectedEndpoint=0,manualPoint=null;
+const boardOrder=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
 
 function setStatus(t){$("#status").textContent=t}
 function viewport(){
@@ -95,97 +109,141 @@ function viewport(){
   ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
   return r;
 }
-function cal(){
-  const r=viewport();
-  return{x:r.width*(+$("#cx").value/100),y:r.height*(+$("#cy").value/100),rad:Math.min(r.width,r.height)*(+$("#diam").value/100)/2,w:r.width,h:r.height,rot:+$("#rotation").value};
+function allCalibrated(){return Object.values(calPoints).every(Boolean)}
+function calibration(){
+  if(!allCalibrated())return null;
+  const cx=(calPoints.left.x+calPoints.right.x+calPoints.top.x+calPoints.bottom.x)/4;
+  const cy=(calPoints.left.y+calPoints.right.y+calPoints.top.y+calPoints.bottom.y)/4;
+  const rx=Math.hypot(calPoints.right.x-calPoints.left.x,calPoints.right.y-calPoints.left.y)/2;
+  const ry=Math.hypot(calPoints.bottom.x-calPoints.top.x,calPoints.bottom.y-calPoints.top.y)/2;
+  const ux={x:(calPoints.right.x-calPoints.left.x)/(2*rx),y:(calPoints.right.y-calPoints.left.y)/(2*rx)};
+  const uy={x:(calPoints.bottom.x-calPoints.top.x)/(2*ry),y:(calPoints.bottom.y-calPoints.top.y)/(2*ry)};
+  return{cx,cy,rx,ry,ux,uy};
 }
 function draw(){
-  const c=cal();ctx.clearRect(0,0,c.w,c.h);
-  ctx.strokeStyle="#277bef";ctx.lineWidth=3;ctx.beginPath();ctx.arc(c.x,c.y,c.rad,0,Math.PI*2);ctx.stroke();
-  ctx.strokeStyle="#ffffff55";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(c.x-c.rad,c.y);ctx.lineTo(c.x+c.rad,c.y);ctx.moveTo(c.x,c.y-c.rad);ctx.lineTo(c.x,c.y+c.rad);ctx.stroke();
-  const ang=(c.rot-90)*Math.PI/180;
-  ctx.strokeStyle="#e83e43";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(c.x+Math.cos(ang)*c.rad,c.y+Math.sin(ang)*c.rad);ctx.stroke();
-  if(autoPoint)drawPoint(autoPoint.x,autoPoint.y,"#29d9ff",7);
-  if(manualPoint)drawPoint(manualPoint.x,manualPoint.y,"#f2c85b",10);
+  const r=viewport();ctx.clearRect(0,0,r.width,r.height);
+  Object.entries(calPoints).forEach(([k,p])=>{if(p)drawPoint(p.x,p.y,"#277bef",7,k[0].toUpperCase())});
+  const c=calibration();
+  if(c){
+    ctx.strokeStyle="#277bef";ctx.lineWidth=3;ctx.beginPath();
+    for(let i=0;i<=120;i++){
+      const a=i/120*Math.PI*2;
+      const x=c.cx+c.ux.x*c.rx*Math.cos(a)+c.uy.x*c.ry*Math.sin(a);
+      const y=c.cy+c.ux.y*c.rx*Math.cos(a)+c.uy.y*c.ry*Math.sin(a);
+      if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)
+    }
+    ctx.stroke();
+    ctx.strokeStyle="#ffffff55";ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(calPoints.left.x,calPoints.left.y);ctx.lineTo(calPoints.right.x,calPoints.right.y);
+    ctx.moveTo(calPoints.top.x,calPoints.top.y);ctx.lineTo(calPoints.bottom.x,calPoints.bottom.y);ctx.stroke()
+  }
+  if(axis){
+    ctx.strokeStyle="#25d7ff";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(axis.a.x,axis.a.y);ctx.lineTo(axis.b.x,axis.b.y);ctx.stroke()
+  }
+  if(endpoints){
+    drawPoint(endpoints[0].x,endpoints[0].y,"#ff49d6",8,"A");
+    drawPoint(endpoints[1].x,endpoints[1].y,"#ff49d6",8,"B")
+  }
+  const p=manualPoint||endpoints?.[selectedEndpoint];
+  if(p)drawPoint(p.x,p.y,"#f2c85b",11,"")
 }
-function drawPoint(x,y,color,r){
+function drawPoint(x,y,color,r,label){
   ctx.fillStyle=color;ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+  if(label){ctx.fillStyle="#111";ctx.font="bold 10px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(label,x,y)}
 }
-function labels(){
-  ["cx","cy","diam"].forEach(id=>$("#"+id+"v").textContent=$("#"+id).value+"%");
-  $("#rotationv").textContent=$("#rotation").value+"°";$("#thresholdv").textContent=$("#threshold").value;draw();if(manualPoint)updateScore(manualPoint)
-}
-["cx","cy","diam","rotation","threshold"].forEach(id=>$("#"+id).addEventListener("input",labels));
-window.addEventListener("resize",draw);
+document.querySelectorAll(".calBtn").forEach(b=>b.addEventListener("click",()=>{activeCal=b.dataset.key;setStatus("Touche maintenant le point "+b.querySelector("span").textContent.toLowerCase())}));
+overlay.addEventListener("pointerdown",e=>{
+  const r=overlay.getBoundingClientRect(),p={x:e.clientX-r.left,y:e.clientY-r.top};
+  if(activeCal){
+    calPoints[activeCal]=p;$("#"+activeCal+"State").textContent="OK";$("#"+activeCal+"State").classList.add("done");activeCal=null;
+    setStatus(allCalibrated()?"Calibration terminée. Prends une photo de référence.":"Point enregistré. Continue la calibration.");draw();return
+  }
+  if(allCalibrated()){
+    manualPoint=p;updateScore(p,null);draw();setStatus("Pointe corrigée manuellement.")
+  }
+});
+["threshold","minPixels","endpointBias"].forEach(id=>$("#"+id).addEventListener("input",()=>{$("#"+id+"V").textContent=$("#"+id).value}));
 
 async function startCamera(){
   try{
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},audio:false});
-    video.srcObject=stream;await video.play();$("#takeReference").disabled=false;setStatus("Caméra active. Calibre le cercle et le trait rouge vers le 20.");draw()
+    video.srcObject=stream;await video.play();$("#reference").disabled=false;setStatus("Caméra active. Calibre les quatre points.");draw()
   }catch(e){setStatus("Impossible d’ouvrir la caméra : "+e.message)}
 }
 function capture(canvas,context){
-  const vw=video.videoWidth,vh=video.videoHeight;if(!vw||!vh)throw new Error("La vidéo n’est pas prête.");
+  const vw=video.videoWidth,vh=video.videoHeight;if(!vw||!vh)throw new Error("Vidéo non prête.");
   const w=720,h=Math.round(w*vh/vw);canvas.width=w;canvas.height=h;context.drawImage(video,0,0,w,h)
 }
 function takeReference(){
-  try{capture(refCanvas,ctxR);referenceReady=true;autoPoint=null;manualPoint=null;$("#detect").disabled=false;$("#resultPanel").classList.add("hidden");setStatus("Référence enregistrée. Lance une seule fléchette sans déplacer le téléphone.");draw()}
-  catch(e){setStatus(e.message)}
+  if(!allCalibrated())return setStatus("Termine d’abord les quatre points de calibration.");
+  try{
+    capture(referenceCanvas,ctxR);referenceReady=true;axis=null;endpoints=null;manualPoint=null;$("#detect").disabled=false;$("#resultPanel").classList.add("hidden");
+    setStatus("Référence prise. Lance une seule fléchette sans déplacer le téléphone.");draw()
+  }catch(e){setStatus(e.message)}
 }
-function robustAutoDetect(){
-  capture(snap,ctxS);latestFrame=ctxS.getImageData(0,0,snap.width,snap.height);
-  const before=ctxR.getImageData(0,0,refCanvas.width,refCanvas.height),after=latestFrame;
-  const rect=video.getBoundingClientRect(),c=cal(),sx=snap.width/rect.width,sy=snap.height/rect.height,cx=c.x*sx,cy=c.y*sy,rad=c.rad*Math.min(sx,sy),threshold=+$("#threshold").value;
-  const candidates=[];const step=4;
-  for(let y=0;y<snap.height;y+=step){
-    for(let x=0;x<snap.width;x+=step){
-      const dx=x-cx,dy=y-cy;if(dx*dx+dy*dy>rad*rad)continue;
-      let diff=0,edge=0;
-      for(let oy=0;oy<step&&y+oy<snap.height;oy++)for(let ox=0;ox<step&&x+ox<snap.width;ox++){
-        const i=((y+oy)*snap.width+(x+ox))*4;
-        const dr=Math.abs(after.data[i]-before.data[i]),dg=Math.abs(after.data[i+1]-before.data[i+1]),db=Math.abs(after.data[i+2]-before.data[i+2]);
-        diff+=(dr+dg+db)/3;
-        edge+=Math.max(after.data[i],after.data[i+1],after.data[i+2])-Math.min(after.data[i],after.data[i+1],after.data[i+2]);
-      }
-      diff/=step*step;edge/=step*step;
-      if(diff>threshold)candidates.push({x,y,w:diff*(1+edge/255)});
-    }
-  }
-  if(candidates.length<5)throw new Error("Pas assez de changement détecté.");
-  candidates.sort((a,b)=>b.w-a.w);
-  const top=candidates.slice(0,Math.min(120,candidates.length));
-  let sxw=0,syw=0,sw=0;top.forEach(p=>{sxw+=p.x*p.w;syw+=p.y*p.w;sw+=p.w});
-  const px=sxw/sw,py=syw/sw;
-  autoPoint={x:px/sx,y:py/sy};
-  manualPoint={...autoPoint};
-  const confidence=Math.min(99,Math.round((top.length/candidates.length)*100+Math.min(50,candidates[0].w/4)));
-  updateScore(manualPoint,confidence);draw();setStatus("Point proposé en bleu. Vérifie la pointe et touche l’image pour corriger si nécessaire.")
+function mapToBoard(point){
+  const c=calibration(),dx=point.x-c.cx,dy=point.y-c.cy;
+  const nx=(dx*c.ux.x+dy*c.ux.y)/c.rx;
+  const ny=(dx*c.uy.x+dy*c.uy.y)/c.ry;
+  return{nx,ny,dist:Math.hypot(nx,ny)}
 }
-function scoreAt(point){
-  const c=cal(),dx=(point.x-c.x)/c.rad,dy=(point.y-c.y)/c.rad,dist=Math.sqrt(dx*dx+dy*dy);
-  if(dist>1.04)return{zone:"Hors cible",score:0,dist};
-  if(dist<=0.037)return{zone:"DBULL",score:50,dist};
-  if(dist<=0.092)return{zone:"BULL",score:25,dist};
-  let angle=Math.atan2(dx,-dy)*180/Math.PI-angleNormalize(c.rot);angle=(angle+360)%360;
-  const sector=Math.floor((angle+9)/18)%20,number=order[sector];
+function scorePoint(point){
+  const b=mapToBoard(point),d=b.dist;
+  if(d>1.05)return{zone:"Hors cible",score:0,dist:d};
+  if(d<=0.037)return{zone:"DBULL",score:50,dist:d};
+  if(d<=0.092)return{zone:"BULL",score:25,dist:d};
+  let angle=Math.atan2(b.nx,-b.ny)*180/Math.PI;if(angle<0)angle+=360;
+  const sector=Math.floor((angle+9)/18)%20,number=boardOrder[sector];
   let prefix="S",score=number;
-  if(dist>=0.58&&dist<=0.66){prefix="T";score=number*3}
-  else if(dist>=0.93&&dist<=1.0){prefix="D";score=number*2}
-  return{zone:prefix+number,score,dist}
+  if(d>=0.58&&d<=0.66){prefix="T";score=number*3}
+  else if(d>=0.93&&d<=1.0){prefix="D";score=number*2}
+  return{zone:prefix+number,score,dist:d}
 }
-function angleNormalize(a){return ((a%360)+360)%360}
-function updateScore(point,confidence=null){
-  const r=scoreAt(point);$("#zone").textContent=r.zone;$("#score").textContent=r.score;$("#distance").textContent=(r.dist*100).toFixed(1)+" %";
-  $("#confidence").textContent=confidence===null?"Manuel":confidence+" %";$("#resultPanel").classList.remove("hidden")
+function updateScore(point,confidence){
+  const r=scorePoint(point);$("#zone").textContent=r.zone;$("#score").textContent=r.score;$("#distance").textContent=(r.dist*100).toFixed(1)+" %";
+  $("#confidence").textContent=confidence==null?"Manuel":confidence+" %";$("#resultPanel").classList.remove("hidden")
 }
-$("#overlay").addEventListener("pointerdown",e=>{
-  const r=overlay.getBoundingClientRect();manualPoint={x:e.clientX-r.left,y:e.clientY-r.top};updateScore(manualPoint,null);draw();setStatus("Point corrigé manuellement.")
-});
-$("#clearPoint").addEventListener("click",()=>{manualPoint=null;autoPoint=null;$("#resultPanel").classList.add("hidden");draw();setStatus(referenceReady?"Référence prête.":"Aucun point sélectionné.")});
+function detect(){
+  if(!referenceReady)return;
+  try{
+    capture(work,ctxW);
+    const before=ctxR.getImageData(0,0,work.width,work.height),after=ctxW.getImageData(0,0,work.width,work.height);
+    const rect=video.getBoundingClientRect(),sx=work.width/rect.width,sy=work.height/rect.height,c=calibration();
+    const threshold=+$("#threshold").value,minPixels=+$("#minPixels").value;
+    const pts=[],step=3;
+    for(let y=0;y<work.height;y+=step)for(let x=0;x<work.width;x+=step){
+      const vx=x/sx,vy=y/sy;
+      const b=mapToBoard({x:vx,y:vy});if(b.dist>1.03)continue;
+      let diff=0;
+      for(let oy=0;oy<step&&y+oy<work.height;oy++)for(let ox=0;ox<step&&x+ox<work.width;ox++){
+        const i=((y+oy)*work.width+x+ox)*4;
+        diff+=(Math.abs(after.data[i]-before.data[i])+Math.abs(after.data[i+1]-before.data[i+1])+Math.abs(after.data[i+2]-before.data[i+2]))/3
+      }
+      diff/=step*step;if(diff>threshold)pts.push({x:vx,y:vy,w:diff})
+    }
+    if(pts.length<minPixels)throw new Error("Pas assez de pixels modifiés.");
+
+    let sw=0,mx=0,my=0;pts.forEach(p=>{sw+=p.w;mx+=p.x*p.w;my+=p.y*p.w});mx/=sw;my/=sw;
+    let sxx=0,syy=0,sxy=0;pts.forEach(p=>{const dx=p.x-mx,dy=p.y-my;sxx+=p.w*dx*dx;syy+=p.w*dy*dy;sxy+=p.w*dx*dy});
+    const angle=.5*Math.atan2(2*sxy,sxx-syy),ux=Math.cos(angle),uy=Math.sin(angle);
+    let minT=Infinity,maxT=-Infinity;pts.forEach(p=>{const t=(p.x-mx)*ux+(p.y-my)*uy;minT=Math.min(minT,t);maxT=Math.max(maxT,t)});
+    endpoints=[{x:mx+ux*minT,y:my+uy*minT},{x:mx+ux*maxT,y:my+uy*maxT}];
+    axis={a:endpoints[0],b:endpoints[1]};manualPoint=null;
+
+    const bias=+$("#endpointBias").value/100;
+    const d0=mapToBoard(endpoints[0]).dist,d1=mapToBoard(endpoints[1]).dist;
+    selectedEndpoint=(d0+bias<d1)?0:1;
+    const spread=Math.max(1,maxT-minT),orth=Math.sqrt(Math.max(0,(sxx+syy)/sw));
+    const confidence=Math.max(10,Math.min(95,Math.round(35+spread/2-orth/5)));
+    updateScore(endpoints[selectedEndpoint],confidence);draw();
+    setStatus("Axe détecté. Le point jaune est la pointe estimée. Utilise « autre extrémité » ou touche la vraie pointe.")
+  }catch(e){setStatus("Détection insuffisante : "+e.message+" Tu peux toucher directement la pointe sur l’image.")}
+}
+$("#swapEndpoint").addEventListener("click",()=>{if(!endpoints)return;manualPoint=null;selectedEndpoint=1-selectedEndpoint;updateScore(endpoints[selectedEndpoint],null);draw();setStatus("Autre extrémité sélectionnée.")});
 $("#startCamera").addEventListener("click",startCamera);
-$("#takeReference").addEventListener("click",takeReference);
-$("#detect").addEventListener("click",()=>{try{robustAutoDetect()}catch(e){setStatus("Détection automatique insuffisante : "+e.message+" Touche directement la pointe sur l’image.");manualPoint=null;autoPoint=null;draw()}});
-labels();
+$("#reference").addEventListener("click",takeReference);
+$("#detect").addEventListener("click",detect);
+window.addEventListener("resize",draw);
 </script>
 </body>
 </html>
