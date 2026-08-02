@@ -30,33 +30,36 @@ function finishPreference(combo,requireDouble){
   return score;
 }
 
-function findFinish(score,requireDouble=false){
-  if(!Number.isFinite(score)||score<1||score>180)return null;
+function findFinish(score,requireDouble=false,maxDarts=3){
+  if(!Number.isFinite(score)||score<1||score>180||maxDarts<1)return null;
 
   const candidates=[];
   const finalDarts=requireDouble
     ? FINISH_DARTS.filter(d=>d.type==="D")
     : FINISH_DARTS;
 
-  // One dart.
-  for(const d1 of finalDarts){
-    if(d1.score===score)candidates.push([d1]);
-  }
-
-  // Two darts.
-  for(const d1 of FINISH_DARTS){
-    for(const d2 of finalDarts){
-      if(d1.score+d2.score===score)candidates.push([d1,d2]);
+  if(maxDarts>=1){
+    for(const d1 of finalDarts){
+      if(d1.score===score)candidates.push([d1]);
     }
   }
 
-  // Three darts.
-  for(const d1 of FINISH_DARTS){
-    for(const d2 of FINISH_DARTS){
-      const remaining=score-d1.score-d2.score;
-      if(remaining<1||remaining>60)continue;
-      for(const d3 of finalDarts){
-        if(d3.score===remaining)candidates.push([d1,d2,d3]);
+  if(maxDarts>=2){
+    for(const d1 of FINISH_DARTS){
+      for(const d2 of finalDarts){
+        if(d1.score+d2.score===score)candidates.push([d1,d2]);
+      }
+    }
+  }
+
+  if(maxDarts>=3){
+    for(const d1 of FINISH_DARTS){
+      for(const d2 of FINISH_DARTS){
+        const remaining=score-d1.score-d2.score;
+        if(remaining<1||remaining>60)continue;
+        for(const d3 of finalDarts){
+          if(d3.score===remaining)candidates.push([d1,d2,d3]);
+        }
       }
     }
   }
@@ -329,7 +332,55 @@ function myTurn(){return !online||game.players[game.current]?.clientId===myClien
 function fmt(d){if(!d)return"—";if(d.zone===0)return"MISS";if(d.zone===25)return d.mult==="D"?"DBULL":"BULL";return d.mult+d.zone}
 function dartScore(d){if(d.zone===0)return 0;return d.zone===25?(d.mult==="D"?50:25):d.zone*MULT[d.mult]}
 function marks(n){return n<=0?"—":n===1?"／":n===2?"X":"⊗"}
+function provisionalTurnState(){
+  if(!game||game.mode==="cricket"||game.mode==="world"){
+    return {remaining:null,dartsLeft:Math.max(0,3-pending.length),bust:false,total:0};
+  }
+
+  const player=game.players[game.current];
+  let scoring=[...pending];
+
+  if(!player.opened){
+    const firstDouble=scoring.findIndex(d=>d.mult==="D");
+    scoring=firstDouble===-1?[]:scoring.slice(firstDouble);
+  }
+
+  const total=scoring.reduce((sum,d)=>sum+dartScore(d),0);
+  const remaining=player.score-total;
+  const last=scoring.at(-1);
+  const bust=remaining<0||
+    (game.finishRule==="double"&&(remaining===1||(remaining===0&&last?.mult!=="D")));
+
+  return {
+    remaining:bust?player.score:remaining,
+    dartsLeft:Math.max(0,3-pending.length),
+    bust,
+    total:bust?0:total
+  };
+}
+
+function provisionalAdvice(){
+  if(!game||game.mode==="cricket"||game.mode==="world"||game.winner!==null)return null;
+
+  const state=provisionalTurnState();
+  if(!pending.length)return null;
+  if(state.bust)return"BUST";
+
+  if(state.remaining===0)return"Victoire";
+
+  const route=findFinish(
+    state.remaining,
+    game.finishRule==="double",
+    state.dartsLeft
+  );
+
+  return route||`${state.remaining} restant`;
+}
+
 function advice(){
+  const liveAdvice=provisionalAdvice();
+  if(liveAdvice)return liveAdvice;
+
   if(game.mode==="world"){
     const p=game.players[game.current];
     const target=WORLD_TARGETS[p.worldIndex]??25;
@@ -425,6 +476,33 @@ function renderGame(){
   $("#dartChips").innerHTML=[0,1,2].map(i=>`<button class="dart-chip ${pending[i]?"filled":""}" data-i="${i}">${fmt(pending[i])}</button>`).join("");
   document.querySelectorAll(".dart-chip").forEach(c=>c.addEventListener("click",()=>{if(!myTurn())return;const i=+c.dataset.i;if(pending[i])pending.splice(i,1);renderGame()}));
   $("#turnTotal").textContent="Total : "+pending.reduce((a,d)=>a+dartScore(d),0);
+
+  const provisional=provisionalTurnState();
+  const showRemaining=
+    game.mode!=="cricket"&&
+    game.mode!=="world"&&
+    pending.length>0&&
+    game.winner===null;
+
+  $("#liveRemaining").classList.toggle("hidden",!showRemaining);
+
+  if(showRemaining){
+    if(provisional.bust){
+      $("#liveRemaining").innerHTML="<strong>BUST</strong><span>Le score revient au début de la volée</span>";
+    }else{
+      const dartWord=provisional.dartsLeft===1?"fléchette":"fléchettes";
+      const route=findFinish(
+        provisional.remaining,
+        game.finishRule==="double",
+        provisional.dartsLeft
+      );
+
+      $("#liveRemaining").innerHTML=
+        `<strong>Il reste ${provisional.remaining}</strong>`+
+        `<span>${provisional.dartsLeft} ${dartWord} disponible${provisional.dartsLeft>1?"s":""}`+
+        `${route?` · ${route}`:""}</span>`;
+    }
+  }
   $("#turnHistory").innerHTML=game.history.length?[...game.history].reverse().slice(0,15).map(h=>`<div class="history-row"><div><strong>${h.name}</strong><p class="hint">${h.darts.map(fmt).join(" · ")}</p></div><span class="pill">${h.label}</span></div>`).join(""):'<p class="hint">Aucune volée.</p>';
 }
 function addDart(zone){if(!myTurn())return;pending.push({zone,mult:zone===25&&mult==="T"?"S":mult});if(pending.length===3)setTimeout(commitTurn,180);renderGame()}
@@ -464,7 +542,7 @@ miss.addEventListener("click",()=>{
 });
 numbers.appendChild(miss);
 
-async function commitTurn(){
+async async function commitTurn(){
   if(pending.length!==3||!myTurn()||game.winner!==null)return;
   const snapshot=JSON.parse(JSON.stringify(game)),pi=game.current,oi=(pi+1)%game.players.length,p=game.players[pi],darts=JSON.parse(JSON.stringify(pending));
   if(game.mode==="world"){
@@ -755,20 +833,32 @@ function beginVoiceTurn(token){
       return;
     }
 
-    if(parsed.darts?.length===3){
-      pending=parsed.darts;
+    if(parsed.darts?.length){
+      const slotsLeft=Math.max(0,3-pending.length);
+      const newDarts=parsed.darts.slice(0,slotsLeft);
+      pending.push(...newDarts);
       renderGame();
-      setVoiceState(VoiceState.COMMITTING);
+
+      if(pending.length===3){
+        setVoiceState(VoiceState.COMMITTING);
+        destroyRecognition();
+        commitTurnFromVoice(token);
+        return;
+      }
+
+      const remainingSlots=3-pending.length;
+      $("#voiceStatus").textContent=
+        `Compris : ${text} — ${pending.length}/3. `+
+        `Annonce la fléchette suivante (${remainingSlots} restante${remainingSlots>1?"s":""}).`;
+
       destroyRecognition();
-      commitTurnFromVoice(token);
+      resetVoiceCycle("Fléchette suivante");
       return;
     }
 
-    pending=parsed.darts||[];
-    renderGame();
-    $("#voiceStatus").textContent=`Compris : ${text} — ${pending.length}/3. Répète la volée complète.`;
+    $("#voiceStatus").textContent=`Je n'ai pas reconnu la fléchette : ${text}`;
     destroyRecognition();
-    resetVoiceCycle("Score incomplet");
+    resetVoiceCycle("Nouvelle tentative");
   };
 
   recognition.onerror=e=>{
@@ -794,14 +884,34 @@ function beginVoiceTurn(token){
 
 async function commitTurnFromVoice(token){
   if(token!==voiceToken)return;
+
+  const playerName=game.players[game.current]?.name||"Le joueur";
+  const modeBefore=game.mode;
+
   await commitTurn();
+
+  const lastTurn=game.history.at(-1);
+
   if(game?.winner!==null){
     voiceLoop=false;
     setVoiceState(VoiceState.IDLE,"Partie terminée");
     return;
   }
+
   setVoiceState(VoiceState.ANNOUNCING);
+
+  if(["201","301","501"].includes(String(modeBefore))&&lastTurn){
+    const scoreText=lastTurn.label==="BUST"
+      ?"BUST, zéro point"
+      :lastTurn.label==="Pas ouvert"
+        ?"Volée non comptée"
+        :`${lastTurn.label} points`;
+
+    await announce(`${playerName} marque ${scoreText}`);
+  }
+
   await announceCurrentTurn();
+
   if(token!==voiceToken)return;
   resetVoiceCycle("Tour suivant");
 }

@@ -90,3 +90,23 @@ box-shadow:inset 0 0 0 8px #252c37}
 .world-result-grid div{padding:10px;border-radius:10px;background:rgba(255,255,255,.035)}
 .world-result-grid span{display:block;color:var(--muted);font-size:12px;margin-bottom:3px}
 .world-result-grid strong{font-size:18px}
+
+.live-remaining{
+  margin:10px 0 14px;
+  padding:11px 14px;
+  border:1px solid var(--green);
+  border-radius:12px;
+  background:rgba(35,211,130,.08);
+  text-align:center;
+}
+.live-remaining strong{
+  display:block;
+  color:var(--yellow);
+  font-size:22px;
+}
+.live-remaining span{
+  display:block;
+  color:var(--muted);
+  margin-top:4px;
+  font-size:14px;
+}
