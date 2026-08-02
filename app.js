@@ -746,7 +746,7 @@ miss.addEventListener("click",()=>{
 });
 numbers.appendChild(miss);
 
-async async function computerDifficulty(level){
+function computerDifficulty(level){
   if(level==="hard"){
     return{hitChance:.82,doubleChance:.20,tripleChance:.43,targetMistake:.05};
   }

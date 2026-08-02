@@ -1,20 +1,18 @@
-# FT Darts V5.8.10 — Correctif des profils
+# FT Darts V5.8.11 — Correctif blocage général
 
-Correction d'un blocage lorsque la liste de profils enregistrée dans le navigateur est vide ou invalide.
+Correction d'une erreur JavaScript qui empêchait toute interaction dans l'application.
 
-## Corrections
+## Correction
 
-- restauration automatique des profils Fabien et Thibault si aucun profil n'est disponible ;
-- le bouton « Ajouter un joueur » fonctionne même après une liste vide ;
-- création d'un nouveau profil sécurisée ;
-- le sélecteur de joueurs ne peut plus provoquer l'arrêt du JavaScript ;
-- possibilité de conserver un seul profil pour le mode solo ;
-- toutes les fonctions de la V5.8.9 sont conservées, notamment l'ordinateur en Cricket.
+- suppression de la déclaration invalide `async async function` ;
+- restauration du chargement des profils ;
+- boutons de navigation et modes de jeu à nouveau cliquables ;
+- conservation du mode solo et de l'ordinateur en Cricket.
 
 ## GitHub
 
 Remplace tous les fichiers puis ouvre :
 
-https://fablefdarts.github.io/FTDarts/?v=5810
+https://fablefdarts.github.io/FTDarts/?v=5811
 
-Lors du premier test, utilise un onglet privé afin d'éviter l'ancien cache.
+Teste d'abord dans un onglet privé.
