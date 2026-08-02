@@ -1,46 +1,29 @@
-# FT Darts V5.7 — Saisie vocale naturelle
+# FT Darts V5.8 — Calcul automatique des finishes
 
-## Fléchettes manquées
+## Nouvelle fonctionnalité
 
-Les mots suivants représentent une seule fléchette à zéro :
-- zéro
-- nul / nulle
-- raté
-- loupé
-- miss
-- rien
-- aucune
+FT Darts recherche automatiquement une combinaison de sortie en une, deux ou trois fléchettes.
+
+Le calcul respecte la règle choisie :
+- Finish libre : la dernière fléchette peut être un simple, un double, un triple ou une Bull.
+- Double-out : la dernière fléchette doit être un double ou la Bull intérieure à 50.
 
 Exemple :
-`Triple 20, 12 et zéro`
-devient :
-`T20 · S12 · MISS`
-Total : 72.
+- 141 → T20 · T19 · D12
+- 100 → T20 · D20
+- 40 → D20
 
-## Bull
+Lorsqu'aucune combinaison n'existe, FT Darts affiche :
+- Pas de finish en 3 flèches
+- ou Pas de finish double-out en 3 flèches
 
-- `25` ou `vingt-cinq` = Bull extérieure
-- `50` ou `cinquante` = Bull intérieure
-- `Bull extérieure` = 25
-- `Bull intérieure`, `double Bull` ou `Bullseye` = 50
-
-Exemples :
-- `50, 25 et raté`
-- `Bull intérieure, Bull extérieure et zéro`
-- `Triple 20, double 14 et miss`
-
-## Saisie visuelle
-
-Trois boutons sont ajoutés :
-- BULL 25
-- BULL 50
-- MISS / 0
+L'annonce vocale indique également le finish possible au début du tour.
 
 ## Mise à jour GitHub
 
 Remplace tous les fichiers du ZIP.
 
 Après le commit, ouvre :
-https://fablefdarts.github.io/FTDarts/?v=57
+https://fablefdarts.github.io/FTDarts/?v=58
 
 Teste d'abord dans un onglet privé.

@@ -3,7 +3,69 @@ import { firebaseConfig } from "./firebase-config.js";
 const $=s=>document.querySelector(s);
 const TARGETS=["20","19","18","17","16","15","BULL"];
 const WORLD_TARGETS=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25];
+
 const MULT={S:1,D:2,T:3};
+
+const FINISH_DARTS=[
+  ...Array.from({length:20},(_,i)=>({label:`T${20-i}`,score:(20-i)*3,type:"T",number:20-i})),
+  {label:"DBULL",score:50,type:"D",number:25},
+  ...Array.from({length:20},(_,i)=>({label:`D${20-i}`,score:(20-i)*2,type:"D",number:20-i})),
+  {label:"BULL",score:25,type:"S",number:25},
+  ...Array.from({length:20},(_,i)=>({label:`S${20-i}`,score:20-i,type:"S",number:20-i}))
+];
+
+function finishPreference(combo,requireDouble){
+  let score=0;
+  // Prefer fewer darts.
+  score+=(3-combo.length)*1000;
+  // Prefer a double finish, even in finish libre.
+  if(combo.at(-1)?.type==="D")score+=500;
+  // Prefer triples before the final dart.
+  score+=combo.slice(0,-1).filter(d=>d.type==="T").length*70;
+  // Prefer conventional high-value routes.
+  score+=combo.reduce((sum,d)=>sum+d.score,0)/10;
+  // Avoid awkward bull routes unless useful.
+  score-=combo.filter(d=>d.number===25).length*5;
+  if(requireDouble&&combo.at(-1)?.type!=="D")score-=10000;
+  return score;
+}
+
+function findFinish(score,requireDouble=false){
+  if(!Number.isFinite(score)||score<1||score>180)return null;
+
+  const candidates=[];
+  const finalDarts=requireDouble
+    ? FINISH_DARTS.filter(d=>d.type==="D")
+    : FINISH_DARTS;
+
+  // One dart.
+  for(const d1 of finalDarts){
+    if(d1.score===score)candidates.push([d1]);
+  }
+
+  // Two darts.
+  for(const d1 of FINISH_DARTS){
+    for(const d2 of finalDarts){
+      if(d1.score+d2.score===score)candidates.push([d1,d2]);
+    }
+  }
+
+  // Three darts.
+  for(const d1 of FINISH_DARTS){
+    for(const d2 of FINISH_DARTS){
+      const remaining=score-d1.score-d2.score;
+      if(remaining<1||remaining>60)continue;
+      for(const d3 of finalDarts){
+        if(d3.score===remaining)candidates.push([d1,d2,d3]);
+      }
+    }
+  }
+
+  if(!candidates.length)return null;
+  candidates.sort((a,b)=>finishPreference(b,requireDouble)-finishPreference(a,requireDouble));
+  return candidates[0].map(d=>d.label).join(" · ");
+}
+
 const CHECKOUTS={170:"T20 T20 Bull",167:"T20 T19 Bull",164:"T20 T18 Bull",161:"T20 T17 Bull",160:"T20 T20 D20",156:"T20 T20 D18",152:"T20 T20 D16",148:"T20 T16 D20",144:"T20 T20 D12",140:"T20 T20 D10",136:"T20 T20 D8",132:"T20 T16 D12",128:"T18 T18 D10",124:"T20 T16 D8",120:"T20 S20 D20",116:"T20 S16 D20",112:"T20 S12 D20",108:"T20 S8 D20",104:"T18 S10 D20",100:"T20 D20",98:"T20 D19",97:"T19 D20",96:"T20 D18",95:"T19 D19",94:"T18 D20",93:"T19 D18",92:"T20 D16",91:"T17 D20",90:"T18 D18",89:"T19 D16",88:"T16 D20",87:"T17 D18",86:"T18 D16",85:"T15 D20",84:"T20 D12",83:"T17 D16",82:"T14 D20",81:"T19 D12",80:"T20 D10",79:"T13 D20",78:"T18 D12",77:"T19 D10",76:"T20 D8",75:"T17 D12",74:"T14 D16",73:"T19 D8",72:"T16 D12",71:"T13 D16",70:"T18 D8",69:"T19 D6",68:"T20 D4",67:"T17 D8",66:"T10 D18",65:"T15 D10",64:"T16 D8",63:"T13 D12",62:"T10 D16",61:"T15 D8",60:"S20 D20",59:"S19 D20",58:"S18 D20",57:"S17 D20",56:"S16 D20",55:"S15 D20",54:"S14 D20",53:"S13 D20",52:"S12 D20",51:"S11 D20",50:"S10 D20",49:"S9 D20",48:"S16 D16",47:"S15 D16",46:"S14 D16",45:"S13 D16",44:"S12 D16",43:"S11 D16",42:"S10 D16",41:"S9 D16",40:"D20",38:"D19",36:"D18",34:"D17",32:"D16",30:"D15",28:"D14",26:"D13",24:"D12",22:"D11",20:"D10",18:"D9",16:"D8",14:"D7",12:"D6",10:"D5",8:"D4",6:"D3",4:"D2",2:"D1"};
 
 let profiles=load("ft_profiles",[
@@ -266,10 +328,18 @@ function advice(){
     const target=WORLD_TARGETS[p.worldIndex]??25;
     return target===25?"Vise la Bull":`Vise le ${target}`;
   }
+
   if(!options.finishAdvice||game.mode==="cricket")return"—";
-  const s=game.players[game.current].score;
-  if(game.finishRule==="free")return s<=60?`Sortie libre : ${s}`:CHECKOUTS[s]||"Cherche un gros score";
-  return CHECKOUTS[s]||"Pas de finish en 3 flèches";
+
+  const score=game.players[game.current].score;
+  const requireDouble=game.finishRule==="double";
+  const route=findFinish(score,requireDouble);
+
+  if(route)return route;
+  if(score>180)return"Pas de finish en 3 flèches";
+  return requireDouble
+    ?"Pas de finish double-out en 3 flèches"
+    :"Pas de finish en 3 flèches";
 }
 function renderGame(){
   $("#gameTitle").textContent=game.mode==="cricket"?"CRICKET":game.mode==="world"?"TOUR DU MONDE":game.mode;
@@ -669,6 +739,19 @@ function announceCurrentTurn(){
     const target=WORLD_TARGETS[p.worldIndex];
     return announce(`Au tour de ${p.name}. Vise ${target===25?"la bulle":target}`);
   }
+
+  if(game.mode!=="cricket"){
+    const route=findFinish(p.score,game.finishRule==="double");
+    if(route){
+      const spoken=route
+        .replaceAll("T","triple ")
+        .replaceAll("D","double ")
+        .replaceAll("S","simple ")
+        .replaceAll("BULL","bulle");
+      return announce(`Au tour de ${p.name}. Il reste ${p.score}. Finish possible : ${spoken}`);
+    }
+  }
+
   return announce(`Au tour de ${p.name}. Il reste ${p.score}`);
 }
 
