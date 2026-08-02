@@ -12,7 +12,7 @@ let profiles=load("ft_profiles",[
 let matches=load("ft_matches",[]);
 let selectedPlayerIds=["fabien","thibault"];
 let mode="501",startRule="free",finishRule="free",starterRule="random",mult="S";
-let options={handsFree:false,voiceAnnounce:true,finishAdvice:true};
+let options={handsFree:true,voiceAnnounce:true,finishAdvice:true};
 let game=null,pending=[],online=false,roomCode="",myClientId="",dbApi=null,roomRef=null,unsubscribe=null,recognition=null,voiceLoop=false;
 let centerState={index:0,points:[],current:null,zoom:1,onlineIntent:false};
 
@@ -75,7 +75,14 @@ function renderProfiles(){
 
 function startScore(){return mode==="cricket"?0:Number(mode)}
 function newPlayer(id,clientId=""){const p=profile(id);return{profileId:id,name:p.name,avatar:p.avatar,clientId,score:startScore(),opened:startRule==="free",turns:0,total:0,bestTurn:0,doublesHit:0,doublesAttempted:0,marks:Object.fromEntries(TARGETS.map(t=>[t,0]))}}
-function createGame(ids,clients=[]){return{mode,startRule,finishRule,starterRule,options,current:0,winner:null,players:ids.map((id,i)=>newPlayer(id,clients[i]||"")),history:[],createdAt:Date.now()}}
+function createGame(ids,clients=[]){
+  options={
+    handsFree:$("#handsFree").checked,
+    voiceAnnounce:$("#voiceAnnounce").checked,
+    finishAdvice:$("#finishAdvice").checked
+  };
+  return{mode,startRule,finishRule,starterRule,options:{...options},current:0,winner:null,players:ids.map((id,i)=>newPlayer(id,clients[i]||"")),history:[],createdAt:Date.now()}
+}
 
 $("#startLocal").addEventListener("click",()=>{online=false;beginGameCreation(false)});
 $("#createOnline").addEventListener("click",async()=>{
@@ -156,7 +163,8 @@ function renderCenterSelection(){
 }
 
 $("#targetStage").addEventListener("pointerdown",e=>{
-  const rect=$("#targetStage").getBoundingClientRect();
+  const board=document.querySelector(".target-board");
+  const rect=board.getBoundingClientRect();
   const x=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
   const y=Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height));
   centerState.current={x,y};

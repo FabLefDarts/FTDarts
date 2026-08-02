@@ -37,3 +37,8 @@ box-shadow:inset 0 0 0 8px #252c37}
 .zoom-control{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;margin:12px 0}
 .zoom-control input{margin:0}
 .rank-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+
+.target-board{position:absolute;inset:2%;border-radius:50%;overflow:visible;background:transparent;box-shadow:none}
+.dartboard-image{position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none;-webkit-user-drag:none;pointer-events:none}
+#targetPins{position:absolute;inset:0}
+.target-ring,.target-cross{display:none}
