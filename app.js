@@ -11,9 +11,10 @@ let profiles=load("ft_profiles",[
 ]);
 let matches=load("ft_matches",[]);
 let selectedPlayerIds=["fabien","thibault"];
-let mode="501",startRule="free",finishRule="free",mult="S";
+let mode="501",startRule="free",finishRule="free",starterRule="random",mult="S";
 let options={handsFree:false,voiceAnnounce:true,finishAdvice:true};
 let game=null,pending=[],online=false,roomCode="",myClientId="",dbApi=null,roomRef=null,unsubscribe=null,recognition=null,voiceLoop=false;
+let centerState={index:0,points:[],current:null,zoom:1,onlineIntent:false};
 
 function saveLocal(){localStorage.setItem("ft_profiles",JSON.stringify(profiles));localStorage.setItem("ft_matches",JSON.stringify(matches))}
 function load(key,fallback){try{return JSON.parse(localStorage.getItem(key))||fallback}catch{return fallback}}
@@ -42,6 +43,7 @@ function switchTab(name){
 document.querySelectorAll(".game-mode").forEach(b=>b.addEventListener("click",()=>{setChoice(".game-mode",b);mode=b.dataset.value;$("#rulesPanel").classList.toggle("hidden",mode==="cricket")}));
 document.querySelectorAll(".start-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".start-rule",b);startRule=b.dataset.value}));
 document.querySelectorAll(".finish-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".finish-rule",b);finishRule=b.dataset.value}));
+document.querySelectorAll(".starter-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".starter-rule",b);starterRule=b.dataset.value}));
 document.querySelectorAll(".mult").forEach(b=>b.addEventListener("click",()=>{setChoice(".mult",b);mult=b.dataset.value}));
 function setChoice(sel,active){document.querySelectorAll(sel).forEach(x=>x.classList.remove("active"));active.classList.add("active")}
 
@@ -73,15 +75,130 @@ function renderProfiles(){
 
 function startScore(){return mode==="cricket"?0:Number(mode)}
 function newPlayer(id,clientId=""){const p=profile(id);return{profileId:id,name:p.name,avatar:p.avatar,clientId,score:startScore(),opened:startRule==="free",turns:0,total:0,bestTurn:0,doublesHit:0,doublesAttempted:0,marks:Object.fromEntries(TARGETS.map(t=>[t,0]))}}
-function createGame(ids,clients=[]){return{mode,startRule,finishRule,options,current:0,winner:null,players:ids.map((id,i)=>newPlayer(id,clients[i]||"")),history:[],createdAt:Date.now()}}
+function createGame(ids,clients=[]){return{mode,startRule,finishRule,starterRule,options,current:0,winner:null,players:ids.map((id,i)=>newPlayer(id,clients[i]||"")),history:[],createdAt:Date.now()}}
 
-$("#startLocal").addEventListener("click",()=>{online=false;game=createGame(selectedPlayerIds);openGame()});
+$("#startLocal").addEventListener("click",()=>{online=false;beginGameCreation(false)});
 $("#createOnline").addEventListener("click",async()=>{
-  if(selectedPlayerIds.length!==2)return alert("La partie en ligne V4 fonctionne pour deux joueurs.");
+  if(selectedPlayerIds.length!==2)return alert("La partie en ligne fonctionne pour deux joueurs.");
   if(!await loadFirebase()){return $("#onlineStatus").textContent="Configure Firebase dans firebase-config.js pour activer le jeu en ligne."}
-  myClientId=uid();roomCode=code6();game=createGame(selectedPlayerIds,[myClientId,""]);online=true;roomRef=dbApi.ref(dbApi.db,"rooms/"+roomCode);await dbApi.set(roomRef,game);watchRoom();$("#waitingText").textContent=`En attente de ${game.players[1].name}…`;
-  $("#homeView").classList.add("hidden");$("#waitingView").classList.remove("hidden");$("#roomCodeDisplay").textContent=roomCode;
+  beginGameCreation(true);
 });
+
+function shuffledIds(ids){
+  const a=[...ids];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function beginGameCreation(asOnline){
+  if(starterRule==="center"){
+    centerState={index:0,points:[],current:null,zoom:1,onlineIntent:asOnline};
+    $("#homeView").classList.add("hidden");
+    $("#centerView").classList.remove("hidden");
+    $("#targetZoom").value="1";
+    $("#targetStage").style.transform="scale(1)";
+    renderCenterSelection();
+    return;
+  }
+  const ordered=shuffledIds(selectedPlayerIds);
+  finalizeGameCreation(ordered,asOnline);
+}
+
+async function finalizeGameCreation(orderedIds,asOnline){
+  if(asOnline){
+    myClientId=uid();
+    roomCode=code6();
+    game=createGame(orderedIds,[myClientId,""]);
+    online=true;
+    roomRef=dbApi.ref(dbApi.db,"rooms/"+roomCode);
+    await dbApi.set(roomRef,game);
+    watchRoom();
+    $("#homeView").classList.add("hidden");
+    $("#centerView").classList.add("hidden");
+    $("#waitingView").classList.remove("hidden");
+    $("#roomCodeDisplay").textContent=roomCode;
+    $("#waitingText").textContent=`En attente de ${game.players[1].name}…`;
+  }else{
+    online=false;
+    game=createGame(orderedIds);
+    $("#centerView").classList.add("hidden");
+    openGame();
+  }
+}
+
+function renderCenterSelection(){
+  const currentId=selectedPlayerIds[centerState.index];
+  const currentProfile=profile(currentId);
+  $("#centerPrompt").textContent=`${currentProfile.name}, place ta fléchette`;
+  const pins=$("#targetPins");
+  pins.innerHTML="";
+  centerState.points.forEach((p,i)=>{
+    const el=document.createElement("div");
+    el.className="target-pin";
+    el.style.left=(p.x*100)+"%";
+    el.style.top=(p.y*100)+"%";
+    el.textContent=String(i+1);
+    pins.appendChild(el);
+  });
+  if(centerState.current){
+    const el=document.createElement("div");
+    el.className="target-pin current";
+    el.style.left=(centerState.current.x*100)+"%";
+    el.style.top=(centerState.current.y*100)+"%";
+    el.textContent="•";
+    pins.appendChild(el);
+  }
+  const ranking=[...centerState.points].sort((a,b)=>a.distance-b.distance);
+  $("#centerRanking").innerHTML=ranking.length?ranking.map((p,i)=>`<div class="rank-row"><span>${i+1}. ${profile(p.profileId).name}</span><strong>${p.distance.toFixed(1)} %</strong></div>`).join(""):'<p class="hint">Aucun impact enregistré.</p>';
+}
+
+$("#targetStage").addEventListener("pointerdown",e=>{
+  const rect=$("#targetStage").getBoundingClientRect();
+  const x=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+  const y=Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height));
+  centerState.current={x,y};
+  renderCenterSelection();
+});
+
+$("#targetZoom").addEventListener("input",e=>{
+  centerState.zoom=Number(e.target.value);
+  $("#targetStage").style.transform=`scale(${centerState.zoom})`;
+});
+
+$("#resetCurrentImpact").addEventListener("click",()=>{
+  centerState.current=null;
+  renderCenterSelection();
+});
+
+$("#cancelCenter").addEventListener("click",()=>{
+  $("#centerView").classList.add("hidden");
+  $("#homeView").classList.remove("hidden");
+});
+
+$("#confirmImpact").addEventListener("click",()=>{
+  if(!centerState.current)return alert("Place d’abord l’impact sur la cible.");
+  const dx=centerState.current.x-.5;
+  const dy=centerState.current.y-.5;
+  const distance=Math.sqrt(dx*dx+dy*dy)*200;
+  centerState.points.push({
+    profileId:selectedPlayerIds[centerState.index],
+    x:centerState.current.x,
+    y:centerState.current.y,
+    distance
+  });
+  centerState.current=null;
+  centerState.index++;
+  if(centerState.index>=selectedPlayerIds.length){
+    const ordered=centerState.points.sort((a,b)=>a.distance-b.distance).map(p=>p.profileId);
+    finalizeGameCreation(ordered,centerState.onlineIntent);
+    return;
+  }
+  renderCenterSelection();
+});
+
 $("#joinOnline").addEventListener("click",async()=>{
   if(!await loadFirebase())return $("#onlineStatus").textContent="Configure Firebase dans firebase-config.js.";
   const code=$("#joinCode").value.trim().toUpperCase();if(code.length!==6)return alert("Code invalide.");
@@ -110,7 +227,7 @@ function advice(){
 }
 function renderGame(){
   $("#gameTitle").textContent=game.mode==="cricket"?"CRICKET":game.mode;
-  $("#gameRules").textContent=game.mode==="cricket"?"Règles Cricket":`${game.startRule==="free"?"Début libre":"Double-in"} · ${game.finishRule==="free"?"Finish libre":"Double-out"}`;
+  $("#gameRules").textContent=game.mode==="cricket"?"Règles Cricket":`${game.startRule==="free"?"Début libre":"Double-in"} · ${game.finishRule==="free"?"Finish libre":"Double-out"} · ${game.starterRule==="center"?"Centre":"Aléatoire"}`;
   $("#connectionBadge").textContent=online?roomCode:"LOCAL";
   $("#currentPlayer").textContent=game.winner!==null?`${game.players[game.winner].name} gagne !`:game.players[game.current].name;
   $("#checkoutAdvice").textContent=game.winner!==null?"Terminé":advice();
@@ -146,8 +263,8 @@ async function commitTurn(){
     if(!bust&&remain===0)game.winner=pi;else game.current=oi;
   }
   pending=[];await saveGame();
-  if(game.winner!==null){finishMatch();announce(`${game.players[game.winner].name} gagne la partie`);voiceLoop=false;recognition?.stop()}
-  else{announceTurnAndRestart()}
+  if(game.winner!==null){finishMatch();announce(`${game.players[game.winner].name} gagne la partie`);voiceLoop=false;destroyRecognition();setVoiceState(VoiceState.IDLE,"Partie terminée")}
+  else{if(!voiceLoop)announceTurn()}
 }
 $("#undoTurn").addEventListener("click",async()=>{if(!game.history.length)return;const last=game.history.at(-1);if(online&&last.snapshot.players[last.snapshot.current]?.clientId!==myClientId)return alert("Seul le joueur concerné peut annuler.");pending=last.darts;game=last.snapshot;await saveGame()});
 
@@ -229,106 +346,162 @@ function parseVoice(text){
   return{darts:out,normalized:norm}
 }
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-$("#voiceButton").addEventListener("click",()=>voiceLoop?stopHandsFree():startHandsFree());
-function startHandsFree(){if(!SR)return $("#voiceStatus").textContent="Reconnaissance vocale indisponible dans ce navigateur.";voiceLoop=true;$("#voiceButton").textContent="⏹ Arrêter le mode mains libres";scheduleRecognition(100)}
-function stopHandsFree(){voiceLoop=false;restartRequested=false;try{recognition?.stop()}catch{}$("#voiceButton").textContent="🎤 Annoncer la volée";$("#voiceStatus").textContent="Mode vocal arrêté."}
-let recognitionRunning=false;
-let restartRequested=false;
+const VoiceState={IDLE:"ARRÊT",LISTENING:"ÉCOUTE",PROCESSING:"TRAITEMENT",COMMITTING:"ENREGISTREMENT",ANNOUNCING:"ANNONCE",WAITING:"ATTENTE"};
+let voiceState=VoiceState.IDLE;
+let voiceToken=0;
+let voiceTimer=null;
 
-function scheduleRecognition(delay=650){
-  if(!(voiceLoop||options.handsFree)||game?.winner!==null||!myTurn())return;
-  clearTimeout(scheduleRecognition.timer);
-  scheduleRecognition.timer=setTimeout(()=>{
-    if(recognitionRunning){restartRequested=true;return}
-    startRecognition();
-  },delay);
+function setVoiceState(state,message=""){
+  voiceState=state;
+  $("#voiceEngineState").textContent=`Micro : ${state}${message?" · "+message:""}`;
 }
 
-function startRecognition(){
-  if(!(voiceLoop||options.handsFree)||!SR||game?.winner!==null||!myTurn())return;
-  if(recognitionRunning){restartRequested=true;return}
+function clearVoiceTimer(){
+  if(voiceTimer){clearTimeout(voiceTimer);voiceTimer=null}
+}
 
+function destroyRecognition(){
+  if(!recognition)return;
+  try{recognition.onresult=null;recognition.onerror=null;recognition.onend=null;recognition.abort()}catch{}
+  recognition=null;
+}
+
+$("#voiceButton").addEventListener("click",()=>{
+  if(voiceLoop)stopHandsFree();
+  else startHandsFree();
+});
+
+function startHandsFree(){
+  if(!SR){
+    $("#voiceStatus").textContent="Reconnaissance vocale indisponible dans ce navigateur.";
+    return;
+  }
+  voiceLoop=true;
+  $("#voiceButton").textContent="⏹ Arrêter le mode mains libres";
+  resetVoiceCycle("Activation");
+}
+
+function stopHandsFree(){
+  voiceLoop=false;
+  voiceToken++;
+  clearVoiceTimer();
+  destroyRecognition();
+  setVoiceState(VoiceState.IDLE);
+  $("#voiceButton").textContent="🎤 Annoncer la volée";
+  $("#voiceStatus").textContent="Mode vocal arrêté.";
+}
+
+function resetVoiceCycle(reason=""){
+  voiceToken++;
+  clearVoiceTimer();
+  destroyRecognition();
+  setVoiceState(VoiceState.WAITING,reason);
+  if(!voiceLoop||game?.winner!==null||!myTurn())return;
+  const token=voiceToken;
+  voiceTimer=setTimeout(()=>{
+    if(token!==voiceToken)return;
+    beginVoiceTurn(token);
+  },500);
+}
+
+function beginVoiceTurn(token){
+  if(token!==voiceToken||!voiceLoop||game?.winner!==null||!myTurn())return;
+  destroyRecognition();
   recognition=new SR();
   recognition.lang="fr-FR";
   recognition.interimResults=false;
   recognition.maxAlternatives=5;
   recognition.continuous=false;
 
-  recognitionRunning=true;
-  restartRequested=false;
-  let receivedResult=false;
-  let committed=false;
-
+  let resultHandled=false;
+  setVoiceState(VoiceState.LISTENING,game.players[game.current].name);
   $("#voiceStatus").textContent=`J'écoute ${game.players[game.current].name}…`;
 
   recognition.onresult=e=>{
-    receivedResult=true;
+    if(token!==voiceToken||resultHandled)return;
+    resultHandled=true;
+    setVoiceState(VoiceState.PROCESSING);
+
     const alternatives=[];
-    for(let i=0;i<e.results[0].length;i++){
-      alternatives.push(e.results[0][i].transcript);
-    }
+    for(let i=0;i<e.results[0].length;i++)alternatives.push(e.results[0][i].transcript);
 
     let best=null;
     for(const text of alternatives){
       const parsed=parseVoice(text);
       if(parsed.command){best={text,parsed};break}
-      if(!best||((parsed.darts?.length||0)>(best.parsed.darts?.length||0))){
-        best={text,parsed};
-      }
+      const count=parsed.darts?.length||0;
+      if(!best||count>(best.parsed.darts?.length||0))best={text,parsed};
     }
 
-    const text=best?.text||e.results[0][0].transcript;
+    const text=best?.text||alternatives[0]||"";
     const parsed=best?.parsed||parseVoice(text);
     $("#voiceStatus").textContent="Compris : "+text;
 
     if(parsed.command==="undo"){
-      committed=true;
+      destroyRecognition();
       $("#undoTurn").click();
+      resetVoiceCycle("Annulation");
       return;
     }
     if(parsed.command==="clear"){
       pending=[];
       renderGame();
-      restartRequested=true;
+      destroyRecognition();
+      resetVoiceCycle("Volée effacée");
       return;
     }
 
-    if(parsed.darts?.length){
+    if(parsed.darts?.length===3){
       pending=parsed.darts;
       renderGame();
-
-      if(pending.length===3){
-        committed=true;
-        setTimeout(commitTurn,350);
-      }else{
-        $("#voiceStatus").textContent=`Compris : ${text} — ${pending.length}/3 fléchette(s). Répète la volée complète.`;
-        restartRequested=true;
-      }
-    }else{
-      $("#voiceStatus").textContent=`Je n'ai pas reconnu de score dans : ${text}`;
-      restartRequested=true;
+      setVoiceState(VoiceState.COMMITTING);
+      destroyRecognition();
+      commitTurnFromVoice(token);
+      return;
     }
+
+    pending=parsed.darts||[];
+    renderGame();
+    $("#voiceStatus").textContent=`Compris : ${text} — ${pending.length}/3. Répète la volée complète.`;
+    destroyRecognition();
+    resetVoiceCycle("Score incomplet");
   };
 
   recognition.onerror=e=>{
+    if(token!==voiceToken)return;
+    destroyRecognition();
     $("#voiceStatus").textContent="Micro interrompu. Nouvelle tentative…";
-    restartRequested=true;
+    resetVoiceCycle(e.error||"Erreur");
   };
 
   recognition.onend=()=>{
-    recognitionRunning=false;
-    if(!committed&&(restartRequested||!receivedResult)){
-      scheduleRecognition(700);
-    }
+    if(token!==voiceToken||resultHandled)return;
+    destroyRecognition();
+    resetVoiceCycle("Silence");
   };
 
   try{
     recognition.start();
   }catch{
-    recognitionRunning=false;
-    scheduleRecognition(1000);
+    destroyRecognition();
+    resetVoiceCycle("Redémarrage");
   }
 }
+
+async function commitTurnFromVoice(token){
+  if(token!==voiceToken)return;
+  await commitTurn();
+  if(game?.winner!==null){
+    voiceLoop=false;
+    setVoiceState(VoiceState.IDLE,"Partie terminée");
+    return;
+  }
+  setVoiceState(VoiceState.ANNOUNCING);
+  await announceCurrentTurn();
+  if(token!==voiceToken)return;
+  resetVoiceCycle("Tour suivant");
+}
+
 function announce(text){
   return new Promise(resolve=>{
     if(!options.voiceAnnounce||!("speechSynthesis"in window)){resolve();return}
@@ -341,16 +514,14 @@ function announce(text){
     speechSynthesis.speak(u);
   });
 }
-async function announceTurnAndRestart(){
-  const p=game.players[game.current];
-  await announce(`Au tour de ${p.name}. Il reste ${p.score}`);
-  if((voiceLoop||options.handsFree)&&game.winner===null){
-    scheduleRecognition(350);
-  }
-}
-function announceTurn(){
+
+function announceCurrentTurn(){
   const p=game.players[game.current];
   return announce(`Au tour de ${p.name}. Il reste ${p.score}`);
+}
+
+function announceTurn(){
+  return announceCurrentTurn();
 }
 
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");
