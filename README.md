@@ -1,24 +1,30 @@
-# FT Darts V5.5 — Correctif choix du premier joueur
+# FT Darts V5.6 — Mode Tour du monde
 
-## Correctif
+## Nouvelle règle
 
-Le choix « Aléatoire / Plus proche du centre » utilise maintenant de vrais boutons radio adaptés aux écrans tactiles.
+Le mode Tour du monde est ajouté à l'accueil.
 
-Le choix sélectionné est clairement visible :
-- bordure verte ;
-- fond vert foncé ;
-- coche verte.
+Chaque joueur doit toucher successivement :
+1, 2, 3, 4… jusqu'à 20, puis la Bull.
 
-Les fichiers JavaScript et CSS utilisent aussi un numéro de version afin d’éviter le chargement d’une ancienne version depuis le cache de l’iPhone.
+- Simple, double ou triple : la cible demandée est validée.
+- Un double ou un triple ne fait avancer que d'une étape.
+- Une fléchette hors de la cible demandée ne fait pas avancer.
+- Les trois fléchettes d'une volée peuvent permettre d'avancer jusqu'à trois étapes si les cibles sont touchées dans l'ordre.
+- Le premier joueur qui valide la Bull gagne.
+
+Le mode fonctionne :
+- en local ;
+- en ligne ;
+- avec saisie visuelle ;
+- avec reconnaissance vocale ;
+- avec choix du premier joueur aléatoire ou plus proche du centre.
 
 ## Mise à jour GitHub
 
 Remplace tous les fichiers du ZIP.
 
-Après le commit, attends 1 à 3 minutes puis ouvre :
+Après le commit, ouvre :
+https://fablefdarts.github.io/FTDarts/?v=56
 
-https://fablefdarts.github.io/FTDarts/?v=55
-
-Teste dans un onglet privé la première fois.
-
-Lorsque tu touches « Plus proche du centre », la carte doit devenir verte. En lançant une partie locale ou en ligne, la cible doit ensuite s’afficher.
+Teste d'abord dans un onglet privé.

@@ -2,6 +2,7 @@ import { firebaseConfig } from "./firebase-config.js";
 
 const $=s=>document.querySelector(s);
 const TARGETS=["20","19","18","17","16","15","BULL"];
+const WORLD_TARGETS=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25];
 const MULT={S:1,D:2,T:3};
 const CHECKOUTS={170:"T20 T20 Bull",167:"T20 T19 Bull",164:"T20 T18 Bull",161:"T20 T17 Bull",160:"T20 T20 D20",156:"T20 T20 D18",152:"T20 T20 D16",148:"T20 T16 D20",144:"T20 T20 D12",140:"T20 T20 D10",136:"T20 T20 D8",132:"T20 T16 D12",128:"T18 T18 D10",124:"T20 T16 D8",120:"T20 S20 D20",116:"T20 S16 D20",112:"T20 S12 D20",108:"T20 S8 D20",104:"T18 S10 D20",100:"T20 D20",98:"T20 D19",97:"T19 D20",96:"T20 D18",95:"T19 D19",94:"T18 D20",93:"T19 D18",92:"T20 D16",91:"T17 D20",90:"T18 D18",89:"T19 D16",88:"T16 D20",87:"T17 D18",86:"T18 D16",85:"T15 D20",84:"T20 D12",83:"T17 D16",82:"T14 D20",81:"T19 D12",80:"T20 D10",79:"T13 D20",78:"T18 D12",77:"T19 D10",76:"T20 D8",75:"T17 D12",74:"T14 D16",73:"T19 D8",72:"T16 D12",71:"T13 D16",70:"T18 D8",69:"T19 D6",68:"T20 D4",67:"T17 D8",66:"T10 D18",65:"T15 D10",64:"T16 D8",63:"T13 D12",62:"T10 D16",61:"T15 D8",60:"S20 D20",59:"S19 D20",58:"S18 D20",57:"S17 D20",56:"S16 D20",55:"S15 D20",54:"S14 D20",53:"S13 D20",52:"S12 D20",51:"S11 D20",50:"S10 D20",49:"S9 D20",48:"S16 D16",47:"S15 D16",46:"S14 D16",45:"S13 D16",44:"S12 D16",43:"S11 D16",42:"S10 D16",41:"S9 D16",40:"D20",38:"D19",36:"D18",34:"D17",32:"D16",30:"D15",28:"D14",26:"D13",24:"D12",22:"D11",20:"D10",18:"D9",16:"D8",14:"D7",12:"D6",10:"D5",8:"D4",6:"D3",4:"D2",2:"D1"};
 
@@ -40,7 +41,12 @@ function switchTab(name){
   if(name==="achievements")renderAchievements();
 }
 
-document.querySelectorAll(".game-mode").forEach(b=>b.addEventListener("click",()=>{setChoice(".game-mode",b);mode=b.dataset.value;$("#rulesPanel").classList.toggle("hidden",mode==="cricket")}));
+document.querySelectorAll(".game-mode").forEach(b=>b.addEventListener("click",()=>{
+  setChoice(".game-mode",b);
+  mode=b.dataset.value;
+  $("#rulesPanel").classList.toggle("hidden",mode==="cricket"||mode==="world");
+  $("#worldModeHelp").classList.toggle("hidden",mode!=="world");
+}));
 document.querySelectorAll(".start-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".start-rule",b);startRule=b.dataset.value}));
 document.querySelectorAll(".finish-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".finish-rule",b);finishRule=b.dataset.value}));
 document.querySelectorAll('input[name="starterRule"]').forEach(input=>{
@@ -91,8 +97,17 @@ function renderProfiles(){
   document.querySelectorAll(".delete-profile").forEach(b=>b.addEventListener("click",()=>{if(profiles.length<=2)return alert("Garde au moins deux profils.");profiles=profiles.filter(p=>p.id!==b.dataset.id);selectedPlayerIds=selectedPlayerIds.filter(id=>id!==b.dataset.id);saveLocal();renderProfiles();renderPlayerSelector()}));
 }
 
-function startScore(){return mode==="cricket"?0:Number(mode)}
-function newPlayer(id,clientId=""){const p=profile(id);return{profileId:id,name:p.name,avatar:p.avatar,clientId,score:startScore(),opened:startRule==="free",turns:0,total:0,bestTurn:0,doublesHit:0,doublesAttempted:0,marks:Object.fromEntries(TARGETS.map(t=>[t,0]))}}
+function startScore(){return mode==="cricket"||mode==="world"?0:Number(mode)}
+function newPlayer(id,clientId=""){
+  const p=profile(id);
+  return{
+    profileId:id,name:p.name,avatar:p.avatar,clientId,
+    score:startScore(),opened:startRule==="free",
+    turns:0,total:0,bestTurn:0,doublesHit:0,doublesAttempted:0,
+    marks:Object.fromEntries(TARGETS.map(t=>[t,0])),
+    worldIndex:0
+  }
+}
 function createGame(ids,clients=[]){
   options={
     handsFree:$("#handsFree").checked,
@@ -246,23 +261,54 @@ function fmt(d){if(!d)return"—";if(d.zone===25)return d.mult==="D"?"DBULL":"BU
 function dartScore(d){return d.zone===25?(d.mult==="D"?50:25):d.zone*MULT[d.mult]}
 function marks(n){return n<=0?"—":n===1?"／":n===2?"X":"⊗"}
 function advice(){
+  if(game.mode==="world"){
+    const p=game.players[game.current];
+    const target=WORLD_TARGETS[p.worldIndex]??25;
+    return target===25?"Vise la Bull":`Vise le ${target}`;
+  }
   if(!options.finishAdvice||game.mode==="cricket")return"—";
   const s=game.players[game.current].score;
   if(game.finishRule==="free")return s<=60?`Sortie libre : ${s}`:CHECKOUTS[s]||"Cherche un gros score";
   return CHECKOUTS[s]||"Pas de finish en 3 flèches";
 }
 function renderGame(){
-  $("#gameTitle").textContent=game.mode==="cricket"?"CRICKET":game.mode;
-  $("#gameRules").textContent=game.mode==="cricket"?"Règles Cricket":`${game.startRule==="free"?"Début libre":"Double-in"} · ${game.finishRule==="free"?"Finish libre":"Double-out"} · ${game.starterRule==="center"?"Centre":"Aléatoire"}`;
+  $("#gameTitle").textContent=game.mode==="cricket"?"CRICKET":game.mode==="world"?"TOUR DU MONDE":game.mode;
+  $("#gameRules").textContent=
+    game.mode==="cricket"?"Règles Cricket":
+    game.mode==="world"?"1 à 20 puis Bull · "+(game.starterRule==="center"?"Centre":"Aléatoire"):
+    `${game.startRule==="free"?"Début libre":"Double-in"} · ${game.finishRule==="free"?"Finish libre":"Double-out"} · ${game.starterRule==="center"?"Centre":"Aléatoire"}`;
   $("#connectionBadge").textContent=online?roomCode:"LOCAL";
   $("#currentPlayer").textContent=game.winner!==null?`${game.players[game.winner].name} gagne !`:game.players[game.current].name;
   $("#checkoutAdvice").textContent=game.winner!==null?"Terminé":advice();
   $("#entryPanel").classList.toggle("hidden",!myTurn()||game.winner!==null);
   $("#voiceButton").disabled=!myTurn()||game.winner!==null;
-  $("#scoreboard").classList.toggle("hidden",game.mode==="cricket");
+  $("#scoreboard").classList.toggle("hidden",game.mode==="cricket"||game.mode==="world");
   $("#cricketBoard").classList.toggle("hidden",game.mode!=="cricket");
-  if(game.mode!=="cricket")$("#scoreboard").innerHTML=game.players.map((p,i)=>`<div class="score-card ${game.current===i&&game.winner===null?"active":""}"><strong>${p.name}</strong><div class="score-value">${p.score}</div><div class="player-meta">${p.opened?"Ouvert":"Double requis"} · Moy. ${p.turns?(p.total/p.turns).toFixed(1):"0,0"}</div></div>`).join("");
-  else $("#cricketBoard").innerHTML=`<div class="cricket-row"><strong>${game.players[0].name}</strong><strong>Cible</strong><strong>${game.players[1].name}</strong></div>`+TARGETS.map(t=>`<div class="cricket-row"><span class="mark">${marks(game.players[0].marks[t])}</span><strong>${t}</strong><span class="mark">${marks(game.players[1].marks[t])}</span></div>`).join("")+`<div class="cricket-row"><strong>${game.players[0].score} pts</strong><strong>Score</strong><strong>${game.players[1].score} pts</strong></div>`;
+  $("#worldBoard").classList.toggle("hidden",game.mode!=="world");
+
+  if(game.mode!=="cricket"&&game.mode!=="world"){
+    $("#scoreboard").innerHTML=game.players.map((p,i)=>`<div class="score-card ${game.current===i&&game.winner===null?"active":""}"><strong>${p.name}</strong><div class="score-value">${p.score}</div><div class="player-meta">${p.opened?"Ouvert":"Double requis"} · Moy. ${p.turns?(p.total/p.turns).toFixed(1):"0,0"}</div></div>`).join("");
+  }else if(game.mode==="cricket"){
+    $("#cricketBoard").innerHTML=`<div class="cricket-row"><strong>${game.players[0].name}</strong><strong>Cible</strong><strong>${game.players[1].name}</strong></div>`+TARGETS.map(t=>`<div class="cricket-row"><span class="mark">${marks(game.players[0].marks[t])}</span><strong>${t}</strong><span class="mark">${marks(game.players[1].marks[t])}</span></div>`).join("")+`<div class="cricket-row"><strong>${game.players[0].score} pts</strong><strong>Score</strong><strong>${game.players[1].score} pts</strong></div>`;
+  }else{
+    $("#worldBoard").innerHTML=game.players.map((p,i)=>{
+      const target=WORLD_TARGETS[p.worldIndex];
+      const progress=Math.min(100,(p.worldIndex/WORLD_TARGETS.length)*100);
+      const steps=WORLD_TARGETS.map((n,idx)=>{
+        const label=n===25?"B":n;
+        const cls=idx<p.worldIndex?"done":idx===p.worldIndex?"current":"";
+        return `<span class="world-step ${cls}">${label}</span>`;
+      }).join("");
+      return `<div class="world-player">
+        <div class="world-head">
+          <div><strong>${p.name}</strong><p class="hint">${i===game.current&&game.winner===null?"À son tour":"Progression"}</p></div>
+          <div class="world-target">${target===25?"BULL":target??"✓"}</div>
+        </div>
+        <div class="world-progress"><div class="world-progress-fill" style="width:${progress}%"></div></div>
+        <div class="world-steps">${steps}</div>
+      </div>`;
+    }).join("");
+  }
   $("#dartChips").innerHTML=[0,1,2].map(i=>`<button class="dart-chip ${pending[i]?"filled":""}" data-i="${i}">${fmt(pending[i])}</button>`).join("");
   document.querySelectorAll(".dart-chip").forEach(c=>c.addEventListener("click",()=>{if(!myTurn())return;const i=+c.dataset.i;if(pending[i])pending.splice(i,1);renderGame()}));
   $("#turnTotal").textContent="Total : "+pending.reduce((a,d)=>a+dartScore(d),0);
@@ -274,7 +320,27 @@ const numbers=$("#numbers");[20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1]
 async function commitTurn(){
   if(pending.length!==3||!myTurn()||game.winner!==null)return;
   const snapshot=JSON.parse(JSON.stringify(game)),pi=game.current,oi=(pi+1)%game.players.length,p=game.players[pi],darts=JSON.parse(JSON.stringify(pending));
-  if(game.mode==="cricket"){
+  if(game.mode==="world"){
+    let advances=0;
+    darts.forEach(d=>{
+      const target=WORLD_TARGETS[p.worldIndex];
+      if(target===undefined)return;
+      const hit=d.zone===target;
+      if(hit){
+        p.worldIndex++;
+        advances++;
+      }
+    });
+    p.turns++;
+    p.total+=advances;
+    p.bestTurn=Math.max(p.bestTurn,advances);
+    p.score=p.worldIndex;
+    const nextTarget=WORLD_TARGETS[p.worldIndex];
+    const label=advances===0?"Aucune cible":advances===1?"1 étape":`${advances} étapes`;
+    game.history.push({name:p.name,darts,label,snapshot});
+    if(p.worldIndex>=WORLD_TARGETS.length)game.winner=pi;
+    else game.current=oi;
+  }else if(game.mode==="cricket"){
     let gained=0,hits=0;darts.forEach(d=>{let t=null,v=0,c=0;if(d.zone===25){t="BULL";v=25;c=d.mult==="D"?2:1}else if(d.zone>=15&&d.zone<=20){t=String(d.zone);v=d.zone;c=MULT[d.mult]}if(!t)return;hits+=c;const need=Math.max(0,3-p.marks[t]),close=Math.min(need,c);p.marks[t]+=close;const extra=c-close;const anyOpen=game.players.some((op,idx)=>idx!==pi&&op.marks[t]<3);if(extra>0&&anyOpen){p.score+=extra*v;gained+=extra*v}});
     p.turns++;p.total+=hits;p.bestTurn=Math.max(p.bestTurn,hits);game.history.push({name:p.name,darts,label:gained?`+${gained} pts`:`${hits} marque(s)`,snapshot});
     const closed=TARGETS.every(t=>p.marks[t]>=3),top=p.score>=Math.max(...game.players.filter((_,i)=>i!==pi).map(x=>x.score));if(closed&&top)game.winner=pi;else game.current=oi;
@@ -543,6 +609,10 @@ function announce(text){
 
 function announceCurrentTurn(){
   const p=game.players[game.current];
+  if(game.mode==="world"){
+    const target=WORLD_TARGETS[p.worldIndex];
+    return announce(`Au tour de ${p.name}. Vise ${target===25?"la bulle":target}`);
+  }
   return announce(`Au tour de ${p.name}. Il reste ${p.score}`);
 }
 
