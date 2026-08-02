@@ -1107,15 +1107,14 @@ async function playComputerTurn(){
         :`${player.name} réalise ${label}.`
     );
   }else if(modeBefore==="world"){
-    const advances=Math.max(0,(completedPlayer.worldIndex||0)-worldIndexBefore);
-    const nextTarget=WORLD_TARGETS[completedPlayer.worldIndex];
-
     if(game.winner===computerIndex){
-      await announce(`${player.name} avance de ${advances} étape${advances>1?"s":""} et termine le Tour du monde.`);
-    }else if(advances===0){
-      await announce(`${player.name} ne valide aucune cible. Il reste sur le ${nextTarget===25?"bulle":nextTarget}.`);
+      await announce(`${player.name} termine le Tour du monde.`);
     }else{
-      await announce(`${player.name} avance de ${advances} étape${advances>1?"s":""}. Prochaine cible : ${nextTarget===25?"bulle":nextTarget}.`);
+      const human=game.players[game.current];
+      const humanTarget=WORLD_TARGETS[human.worldIndex];
+      await announce(
+        `À toi ${human.name}. Vise ${humanTarget===25?"la bulle":humanTarget}.`
+      );
     }
   }
 
@@ -1123,7 +1122,12 @@ async function playComputerTurn(){
 
   if(game?.winner===null){
     const human=game.players[game.current];
-    await announce(`Au tour de ${human.name}`);
+
+    // En Tour du monde, la prochaine cible du joueur vient déjà
+    // d'être annoncée juste après les trois lancers de l'ordinateur.
+    if(modeBefore!=="world"){
+      await announce(`Au tour de ${human.name}`);
+    }
 
     if(options.handsFree){
       voiceLoop=true;
