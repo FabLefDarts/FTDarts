@@ -1,30 +1,46 @@
-# FT Darts V5.6 — Mode Tour du monde
+# FT Darts V5.7 — Saisie vocale naturelle
 
-## Nouvelle règle
+## Fléchettes manquées
 
-Le mode Tour du monde est ajouté à l'accueil.
+Les mots suivants représentent une seule fléchette à zéro :
+- zéro
+- nul / nulle
+- raté
+- loupé
+- miss
+- rien
+- aucune
 
-Chaque joueur doit toucher successivement :
-1, 2, 3, 4… jusqu'à 20, puis la Bull.
+Exemple :
+`Triple 20, 12 et zéro`
+devient :
+`T20 · S12 · MISS`
+Total : 72.
 
-- Simple, double ou triple : la cible demandée est validée.
-- Un double ou un triple ne fait avancer que d'une étape.
-- Une fléchette hors de la cible demandée ne fait pas avancer.
-- Les trois fléchettes d'une volée peuvent permettre d'avancer jusqu'à trois étapes si les cibles sont touchées dans l'ordre.
-- Le premier joueur qui valide la Bull gagne.
+## Bull
 
-Le mode fonctionne :
-- en local ;
-- en ligne ;
-- avec saisie visuelle ;
-- avec reconnaissance vocale ;
-- avec choix du premier joueur aléatoire ou plus proche du centre.
+- `25` ou `vingt-cinq` = Bull extérieure
+- `50` ou `cinquante` = Bull intérieure
+- `Bull extérieure` = 25
+- `Bull intérieure`, `double Bull` ou `Bullseye` = 50
+
+Exemples :
+- `50, 25 et raté`
+- `Bull intérieure, Bull extérieure et zéro`
+- `Triple 20, double 14 et miss`
+
+## Saisie visuelle
+
+Trois boutons sont ajoutés :
+- BULL 25
+- BULL 50
+- MISS / 0
 
 ## Mise à jour GitHub
 
 Remplace tous les fichiers du ZIP.
 
 Après le commit, ouvre :
-https://fablefdarts.github.io/FTDarts/?v=56
+https://fablefdarts.github.io/FTDarts/?v=57
 
 Teste d'abord dans un onglet privé.

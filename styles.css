@@ -70,3 +70,5 @@ box-shadow:inset 0 0 0 8px #252c37}
   .world-mode{grid-column:span 2}
   .world-steps{grid-template-columns:repeat(6,1fr)}
 }
+
+.number.bull{min-height:48px;aspect-ratio:auto}

@@ -257,8 +257,8 @@ function openGame(){
 }
 $("#leaveGame").addEventListener("click",()=>location.reload());
 function myTurn(){return !online||game.players[game.current]?.clientId===myClientId}
-function fmt(d){if(!d)return"—";if(d.zone===25)return d.mult==="D"?"DBULL":"BULL";return d.mult+d.zone}
-function dartScore(d){return d.zone===25?(d.mult==="D"?50:25):d.zone*MULT[d.mult]}
+function fmt(d){if(!d)return"—";if(d.zone===0)return"MISS";if(d.zone===25)return d.mult==="D"?"DBULL":"BULL";return d.mult+d.zone}
+function dartScore(d){if(d.zone===0)return 0;return d.zone===25?(d.mult==="D"?50:25):d.zone*MULT[d.mult]}
 function marks(n){return n<=0?"—":n===1?"／":n===2?"X":"⊗"}
 function advice(){
   if(game.mode==="world"){
@@ -315,7 +315,41 @@ function renderGame(){
   $("#turnHistory").innerHTML=game.history.length?[...game.history].reverse().slice(0,15).map(h=>`<div class="history-row"><div><strong>${h.name}</strong><p class="hint">${h.darts.map(fmt).join(" · ")}</p></div><span class="pill">${h.label}</span></div>`).join(""):'<p class="hint">Aucune volée.</p>';
 }
 function addDart(zone){if(!myTurn())return;pending.push({zone,mult:zone===25&&mult==="T"?"S":mult});if(pending.length===3)setTimeout(commitTurn,180);renderGame()}
-const numbers=$("#numbers");[20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1].forEach(n=>{const b=document.createElement("button");b.className="number";b.textContent=n;b.addEventListener("click",()=>addDart(n));numbers.appendChild(b)});const bull=document.createElement("button");bull.className="number bull";bull.textContent="BULL";bull.addEventListener("click",()=>addDart(25));numbers.appendChild(bull);
+const numbers=$("#numbers");
+[20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1].forEach(n=>{
+  const b=document.createElement("button");
+  b.className="number";
+  b.textContent=n;
+  b.addEventListener("click",()=>addDart(n));
+  numbers.appendChild(b);
+});
+const bull=document.createElement("button");
+bull.className="number bull";
+bull.textContent="BULL 25";
+bull.addEventListener("click",()=>addDart(25));
+numbers.appendChild(bull);
+
+const doubleBull=document.createElement("button");
+doubleBull.className="number bull";
+doubleBull.textContent="BULL 50";
+doubleBull.addEventListener("click",()=>{
+  if(!myTurn())return;
+  pending.push({zone:25,mult:"D"});
+  if(pending.length===3)setTimeout(commitTurn,180);
+  renderGame();
+});
+numbers.appendChild(doubleBull);
+
+const miss=document.createElement("button");
+miss.className="number bull";
+miss.textContent="MISS / 0";
+miss.addEventListener("click",()=>{
+  if(!myTurn())return;
+  pending.push({zone:0,mult:"S"});
+  if(pending.length===3)setTimeout(commitTurn,180);
+  renderGame();
+});
+numbers.appendChild(miss);
 
 async function commitTurn(){
   if(pending.length!==3||!myTurn()||game.winner!==null)return;
@@ -325,7 +359,7 @@ async function commitTurn(){
     darts.forEach(d=>{
       const target=WORLD_TARGETS[p.worldIndex];
       if(target===undefined)return;
-      const hit=d.zone===target;
+      const hit=target===25?d.zone===25:d.zone===target;
       if(hit){
         p.worldIndex++;
         advances++;
@@ -392,7 +426,15 @@ function renderAchievements(){
   $("#achievementsList").innerHTML=profiles.map(p=>`<h3 style="margin-top:12px">${p.name}</h3>`+achievementDefs.map(a=>`<div class="achievement-row ${a.test(p)?"":"locked"}"><div><strong>${a.name}</strong><p class="hint">${a.desc}</p></div><span>${a.test(p)?"🏆":"🔒"}</span></div>`).join("")).join("");
 }
 
-const WORDS={"un":1,"une":1,"deux":2,"trois":3,"quatre":4,"cinq":5,"six":6,"sept":7,"huit":8,"neuf":9,"dix":10,"onze":11,"douze":12,"treize":13,"quatorze":14,"quinze":15,"seize":16,"dix-sept":17,"dix-huit":18,"dix-neuf":19,"vingt":20,"bull":25,"bulle":25,"centre":25};
+const WORDS={
+  "zero":0,"zéro":0,"nul":0,"nulle":0,"rate":0,"raté":0,"loupe":0,"loupé":0,
+  "miss":0,"rien":0,"aucun":0,"aucune":0,
+  "un":1,"une":1,"deux":2,"trois":3,"quatre":4,"cinq":5,"six":6,"sept":7,"huit":8,"neuf":9,
+  "dix":10,"onze":11,"douze":12,"treize":13,"quatorze":14,"quinze":15,"seize":16,
+  "dix-sept":17,"dix-huit":18,"dix-neuf":19,"vingt":20,
+  "vingt-cinq":25,"cinquante":50,
+  "bull":25,"bulle":25,"centre":25
+};
 function normalize(t){
   return t.toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
@@ -401,6 +443,12 @@ function normalize(t){
     .replace(/\bving\b/g," vingt")
     .replace(/\btripe\b/g," triple")
     .replace(/\bdoubl\b/g," double")
+    .replace(/\bbullseye\b/g," cinquante")
+    .replace(/\bbull interieur\b/g," cinquante")
+    .replace(/\binterieur bull\b/g," cinquante")
+    .replace(/\bdouble bull\b/g," cinquante")
+    .replace(/\bbull exterieur\b/g," vingt-cinq")
+    .replace(/\bexterieur bull\b/g," vingt-cinq")
     .replace(/\bet\b/g," ")
     .replace(/\s+/g," ").trim()
 }
@@ -408,34 +456,42 @@ function parseVoice(text){
   const norm=normalize(text)
     .replace(/dix sept/g,"dix-sept")
     .replace(/dix huit/g,"dix-huit")
-    .replace(/dix neuf/g,"dix-neuf");
+    .replace(/dix neuf/g,"dix-neuf")
+    .replace(/vingt cinq/g,"vingt-cinq");
 
   if(norm.includes("annule"))return{command:"undo"};
   if(norm.includes("recommence")||norm.includes("efface"))return{command:"clear"};
 
-  const rawTokens=norm.split(" ");
-  const tokens=[];
-  rawTokens.forEach(token=>{
-    // Handles transcripts such as "18 14" after replacing "18/14".
-    if(/^\\d+$/.test(token)) tokens.push(token);
-    else tokens.push(token);
-  });
-
   const out=[];
-  let m="S";
-  for(const token of tokens){
-    if(["triple","triples","t"].includes(token)){m="T";continue}
-    if(["double","doubles","d"].includes(token)){m="D";continue}
-    if(["simple","simples","s"].includes(token)){m="S";continue}
+  let multiplier="S";
+  const tokens=norm.split(" ");
 
-    const z=/^\\d+$/.test(token)?Number(token):WORDS[token];
-    if(z&&((z>=1&&z<=20)||z===25)){
-      out.push({zone:z,mult:z===25&&m==="T"?"S":m});
-      m="S";
-      if(out.length===3)break;
+  for(const token of tokens){
+    if(["triple","triples","t"].includes(token)){multiplier="T";continue}
+    if(["double","doubles","d"].includes(token)){multiplier="D";continue}
+    if(["simple","simples","s"].includes(token)){multiplier="S";continue}
+
+    const value=/^\d+$/.test(token)?Number(token):WORDS[token];
+    if(value===undefined||value===null)continue;
+
+    if(value===0){
+      out.push({zone:0,mult:"S"});
+      multiplier="S";
+    }else if(value===50){
+      out.push({zone:25,mult:"D"});
+      multiplier="S";
+    }else if(value===25){
+      out.push({zone:25,mult:"S"});
+      multiplier="S";
+    }else if(value>=1&&value<=20){
+      out.push({zone:value,mult:multiplier});
+      multiplier="S";
     }
+
+    if(out.length===3)break;
   }
-  return{darts:out,normalized:norm}
+
+  return{darts:out,normalized:norm};
 }
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const VoiceState={IDLE:"ARRÊT",LISTENING:"ÉCOUTE",PROCESSING:"TRAITEMENT",COMMITTING:"ENREGISTREMENT",ANNOUNCING:"ANNONCE",WAITING:"ATTENTE"};
