@@ -1,9 +1,18 @@
-# FT Darts V5.8.12 — Correctif ajout de joueur
+# FT Darts V5.8.13 — Voix commentateur et OUT
 
-- Le bouton Nouveau ouvre désormais une fenêtre compatible iPhone.
-- Ajouter un joueur sélectionne un profil disponible.
-- S’il n’existe aucun autre profil, il ouvre directement la création d’un nouveau joueur.
-- Le nouveau profil est automatiquement ajouté à la partie lorsqu’il est créé depuis Ajouter un joueur.
+## Modifications
 
-Après remplacement des fichiers :
-https://fablefdarts.github.io/FTDarts/?v=5812
+- Dans toutes les annonces vocales, `MISS` est maintenant prononcé `OUT`.
+- L'affichage visuel reste `MISS` afin de garder une lecture claire des fléchettes.
+- FT Darts choisit automatiquement une voix française masculine lorsqu'elle est disponible.
+- La voix est légèrement plus rapide, plus grave et plus dynamique pour se rapprocher d'un commentateur sportif.
+
+La voix exacte dépend des voix installées sur l'iPhone, Android ou l'ordinateur. Une application web ne peut pas installer ni reproduire exactement la voix d'un commentateur réel.
+
+## GitHub
+
+Remplace tous les fichiers puis ouvre :
+
+https://fablefdarts.github.io/FTDarts/?v=5813
+
+Teste d'abord dans un onglet privé.

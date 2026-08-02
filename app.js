@@ -1276,16 +1276,77 @@ async function commitTurnFromVoice(token){
   resetVoiceCycle("Tour suivant");
 }
 
+let commentatorVoice=null;
+
+function selectCommentatorVoice(){
+  if(!("speechSynthesis"in window))return null;
+
+  const voices=speechSynthesis.getVoices();
+  if(!voices.length)return commentatorVoice;
+
+  const frenchVoices=voices.filter(voice=>
+    /^fr([_-]|$)/i.test(voice.lang||"")
+  );
+
+  // Priorité aux voix françaises masculines généralement disponibles
+  // sur iPhone, Android, Windows et macOS.
+  const preferredNames=[
+    "Thomas","Nicolas","Daniel","Paul","Henri","Jacques",
+    "Jean","Louis","Remy","Rémi","Google français"
+  ];
+
+  commentatorVoice=
+    frenchVoices.find(voice=>
+      preferredNames.some(name=>
+        voice.name.toLowerCase().includes(name.toLowerCase())
+      )
+    )||
+    frenchVoices.find(voice=>voice.localService)||
+    frenchVoices[0]||
+    voices[0]||
+    null;
+
+  return commentatorVoice;
+}
+
+if("speechSynthesis"in window){
+  selectCommentatorVoice();
+  speechSynthesis.addEventListener?.("voiceschanged",selectCommentatorVoice);
+  window.speechSynthesis.onvoiceschanged=selectCommentatorVoice;
+}
+
+function prepareSpokenText(text){
+  return String(text)
+    .replace(/\bMISS\b/gi,"OUT")
+    .replace(/\bmiss\b/gi,"OUT")
+    .replace(/DBULL/gi,"double bulle")
+    .replace(/\bBULL\b/gi,"bulle")
+    .replace(/\s+/g," ")
+    .trim();
+}
+
 function announce(text){
   return new Promise(resolve=>{
-    if(!options.voiceAnnounce||!("speechSynthesis"in window)){resolve();return}
+    if(!options.voiceAnnounce||!("speechSynthesis"in window)){
+      resolve();
+      return;
+    }
+
     speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(text);
-    u.lang="fr-FR";
-    u.rate=.95;
-    u.onend=resolve;
-    u.onerror=resolve;
-    speechSynthesis.speak(u);
+
+    const utterance=new SpeechSynthesisUtterance(prepareSpokenText(text));
+    utterance.lang="fr-FR";
+    utterance.voice=selectCommentatorVoice();
+
+    // Rythme plus énergique et timbre légèrement plus grave,
+    // pour se rapprocher d'un commentateur sportif.
+    utterance.rate=1.08;
+    utterance.pitch=.82;
+    utterance.volume=1;
+
+    utterance.onend=resolve;
+    utterance.onerror=resolve;
+    speechSynthesis.speak(utterance);
   });
 }
 
