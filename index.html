@@ -1,249 +1,165 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080b10">
-<title>FT Darts Caméra V3</title>
-<style>
-:root{--bg:#080b10;--panel:#111720;--panel2:#18202c;--border:#283447;--text:#f4f7fb;--muted:#93a0b4;--red:#e83e43;--blue:#277bef;--green:#31d17c;--yellow:#f2c85b;--cyan:#25d7ff}
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(#080b10,#111927);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif}
-main{max-width:760px;margin:auto;padding:16px 14px 40px}h1,h2,h3,p{margin:0}.brand{display:flex;align-items:center;gap:12px;margin:4px 0 16px}
-.logo{width:58px;height:58px;border-radius:50%;background:#fff;border:7px solid var(--red);display:grid;place-items:center;color:#111;font-size:21px;font-weight:950}
-h1{font-style:italic;font-size:29px}.sub,.muted{color:var(--muted)}.panel{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:15px;margin-bottom:12px}
-button,input{font:inherit;border-radius:12px;border:1px solid var(--border);padding:13px;background:var(--panel2);color:#fff}
-button{cursor:pointer;font-weight:850}.primary{background:var(--red);border:0}.blue{background:var(--blue);border:0}.green{background:var(--green);color:#052415;border:0}.ghost{background:transparent}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cameraBox{position:relative;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:3/4}
-video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.hidden{display:none!important}
-.status{min-height:22px;color:var(--muted);text-align:center;margin-top:10px}.step{padding:9px 0;border-bottom:1px solid var(--border)}.step:last-child{border:0}
-.calList{display:grid;gap:8px}.calItem{display:flex;align-items:center;justify-content:space-between;background:var(--panel2);padding:11px;border-radius:12px}
-.badge{padding:5px 8px;border-radius:99px;background:#293345}.done{background:var(--green);color:#062415}
-.result{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.metric{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:12px;text-align:center}.big{font-size:28px;font-weight:950}
-.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted)}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}.yellow{background:var(--yellow)}.cyan{background:var(--cyan)}.magenta{background:#ff49d6}
-.tip{color:var(--yellow);margin-top:10px}.controls{display:grid;gap:10px}.control{display:grid;grid-template-columns:110px 1fr 54px;gap:8px;align-items:center}.value{text-align:right;color:var(--yellow);font-weight:850}
-@media(max-width:520px){.grid2,.result{grid-template-columns:1fr}.control{grid-template-columns:90px 1fr 48px}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#080b10">
+  <title>FT Darts V4</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <main>
-<div class="brand"><div class="logo">FT</div><div><h1>FT DARTS CAMÉRA V3</h1><p class="sub">Calibration libre + détection de l’axe</p></div></div>
+  <section id="homeView">
+    <header class="brand">
+      <div class="logo">FT</div>
+      <div><h1>FT DARTS</h1><p>Lance. Annonce. Joue.</p></div>
+    </header>
 
-<section class="panel">
-  <div class="step"><b>1.</b> Place le téléphone où tu veux, mais garde toute la cible visible.</div>
-  <div class="step"><b>2.</b> Calibre quatre points : haut du double 20, droite, bas et gauche.</div>
-  <div class="step"><b>3.</b> Prends une référence sans fléchette, puis lance une seule fléchette.</div>
-  <div class="step"><b>4.</b> L’algorithme détecte la forme ajoutée, calcule son axe et propose une pointe.</div>
-  <p class="tip">Le téléphone peut changer de place, mais il faut refaire la calibration à chaque déplacement.</p>
-</section>
+    <nav class="tabs">
+      <button class="tab active" data-tab="play">Jouer</button>
+      <button class="tab" data-tab="profiles">Profils</button>
+      <button class="tab" data-tab="stats">Statistiques</button>
+      <button class="tab" data-tab="achievements">Succès</button>
+    </nav>
 
-<section class="panel">
-  <div class="cameraBox" id="cameraBox">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="work" class="hidden"></canvas>
-    <canvas id="overlay"></canvas>
-  </div>
-  <div class="legend" style="margin-top:10px">
-    <span><i class="dot cyan"></i>Axe détecté</span>
-    <span><i class="dot magenta"></i>Deux extrémités possibles</span>
-    <span><i class="dot yellow"></i>Pointe retenue/corrigée</span>
-  </div>
-  <p id="status" class="status">Démarre la caméra.</p>
-</section>
+    <section id="playTab" class="tab-panel">
+      <div class="panel">
+        <h2>Joueurs</h2>
+        <div id="playerSelector"></div>
+        <button id="addPlayer" class="secondary full">+ Ajouter un joueur</button>
+      </div>
 
-<section class="panel">
-  <h2>Calibration à 4 points</h2>
-  <p class="muted" style="margin-top:8px">Appuie sur un bouton, puis touche le bord extérieur de l’anneau double correspondant.</p>
-  <div class="calList" style="margin-top:12px">
-    <button class="calItem calBtn" data-key="top"><span>1. Haut — double 20</span><span id="topState" class="badge">À faire</span></button>
-    <button class="calItem calBtn" data-key="right"><span>2. Droite — bord à 3 h</span><span id="rightState" class="badge">À faire</span></button>
-    <button class="calItem calBtn" data-key="bottom"><span>3. Bas — bord à 6 h</span><span id="bottomState" class="badge">À faire</span></button>
-    <button class="calItem calBtn" data-key="left"><span>4. Gauche — bord à 9 h</span><span id="leftState" class="badge">À faire</span></button>
-  </div>
-</section>
+      <div class="panel">
+        <h2>Mode de jeu</h2>
+        <div class="choice-grid four">
+          <button class="choice game-mode" data-value="201">201</button>
+          <button class="choice game-mode" data-value="301">301</button>
+          <button class="choice game-mode active" data-value="501">501</button>
+          <button class="choice game-mode" data-value="cricket">Cricket</button>
+        </div>
+      </div>
 
-<section class="panel controls">
-  <h2>Réglages</h2>
-  <label class="control"><span>Sensibilité</span><input id="threshold" type="range" min="8" max="110" value="28"><span id="thresholdV" class="value">28</span></label>
-  <label class="control"><span>Taille minimale</span><input id="minPixels" type="range" min="10" max="250" value="45"><span id="minPixelsV" class="value">45</span></label>
-  <label class="control"><span>Choix pointe</span><input id="endpointBias" type="range" min="-100" max="100" value="20"><span id="endpointBiasV" class="value">20</span></label>
-  <p class="muted">Le dernier réglage aide à choisir entre les deux extrémités de l’axe. Tu peux toujours toucher la vraie pointe.</p>
-</section>
+      <div id="rulesPanel" class="panel">
+        <h2>Règles</h2>
+        <div class="rules">
+          <div>
+            <label>Début</label>
+            <div class="choice-grid">
+              <button class="choice start-rule active" data-value="free">Libre</button>
+              <button class="choice start-rule" data-value="double">Double-in</button>
+            </div>
+          </div>
+          <div>
+            <label>Fin</label>
+            <div class="choice-grid">
+              <button class="choice finish-rule active" data-value="free">Libre</button>
+              <button class="choice finish-rule" data-value="double">Double-out</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
-<section class="panel">
-  <div class="grid2">
-    <button id="startCamera" class="blue">Démarrer la caméra</button>
-    <button id="reference" class="primary" disabled>Photo de référence</button>
-    <button id="detect" class="green" disabled>Détecter la fléchette</button>
-    <button id="swapEndpoint">Choisir l’autre extrémité</button>
-  </div>
-</section>
+      <div class="panel">
+        <h2>Options vocales</h2>
+        <label class="toggle-row"><input id="handsFree" type="checkbox"> <span>Mode mains libres</span></label>
+        <label class="toggle-row"><input id="voiceAnnounce" type="checkbox" checked> <span>Annoncer les scores et le joueur suivant</span></label>
+        <label class="toggle-row"><input id="finishAdvice" type="checkbox" checked> <span>Conseils de finish</span></label>
+        <p class="hint">Le mode mains libres dépend du navigateur. Chrome Android est généralement plus fiable que Safari iPhone.</p>
+      </div>
 
-<section id="resultPanel" class="panel hidden">
-  <h2>Résultat estimé</h2>
-  <div class="result" style="margin-top:12px">
-    <div class="metric"><span class="muted">Zone</span><div id="zone" class="big">—</div></div>
-    <div class="metric"><span class="muted">Score</span><div id="score" class="big">—</div></div>
-    <div class="metric"><span class="muted">Distance centre</span><div id="distance" class="big">—</div></div>
-    <div class="metric"><span class="muted">Confiance</span><div id="confidence" class="big">—</div></div>
-  </div>
-  <p class="muted" style="margin-top:10px">Si le point jaune n’est pas sur la pointe, touche directement la pointe sur l’image.</p>
-</section>
+      <div class="panel">
+        <h2>Partie en ligne</h2>
+        <p class="hint">Crée une salle et partage le code à Thibault.</p>
+        <button id="createOnline" class="primary full">Créer une partie en ligne</button>
+        <div class="join-row">
+          <input id="joinCode" maxlength="6" placeholder="CODE">
+          <button id="joinOnline" class="blue">Rejoindre</button>
+        </div>
+        <p id="onlineStatus" class="hint"></p>
+      </div>
 
-<canvas id="referenceCanvas" class="hidden"></canvas>
+      <button id="startLocal" class="green full large">Jouer sur ce téléphone</button>
+    </section>
+
+    <section id="profilesTab" class="tab-panel hidden">
+      <div class="panel">
+        <div class="section-head"><h2>Profils</h2><button id="newProfile" class="secondary">Nouveau</button></div>
+        <div id="profilesList"></div>
+      </div>
+    </section>
+
+    <section id="statsTab" class="tab-panel hidden">
+      <div class="panel"><h2>Classement Elo</h2><div id="eloTable"></div></div>
+      <div class="panel"><h2>Historique des parties</h2><div id="matchesList"></div></div>
+    </section>
+
+    <section id="achievementsTab" class="tab-panel hidden">
+      <div class="panel"><h2>Succès</h2><div id="achievementsList"></div></div>
+    </section>
+  </section>
+
+  <section id="waitingView" class="hidden">
+    <header class="brand"><div class="logo">FT</div><div><h1>FT DARTS</h1><p>Salle en ligne</p></div></header>
+    <div class="panel center">
+      <p class="hint">Code à envoyer</p>
+      <div id="roomCodeDisplay" class="room-code">------</div>
+      <p id="waitingText">En attente de l'autre joueur…</p>
+      <button id="cancelRoom" class="secondary">Annuler</button>
+    </div>
+  </section>
+
+  <section id="gameView" class="hidden">
+    <header class="game-header">
+      <button id="leaveGame" class="icon-btn">←</button>
+      <div><h2 id="gameTitle"></h2><p id="gameRules"></p></div>
+      <div><span id="connectionBadge" class="badge"></span><button id="undoTurn" class="icon-btn">↶</button></div>
+    </header>
+
+    <div id="scoreboard" class="scoreboard"></div>
+    <div id="cricketBoard" class="panel hidden"></div>
+
+    <div class="panel">
+      <div class="section-head">
+        <div><p class="hint">Au tour de</p><h2 id="currentPlayer"></h2></div>
+        <div class="right"><p class="hint">Conseil</p><strong id="checkoutAdvice">—</strong></div>
+      </div>
+
+      <div id="dartChips" class="dart-chips"></div>
+      <div id="turnTotal" class="turn-total">Total : 0</div>
+
+      <button id="voiceButton" class="blue full">🎤 Annoncer la volée</button>
+      <p id="voiceStatus" class="voice-status">Ex. « triple 20, double 14 et 16 »</p>
+    </div>
+
+    <div id="entryPanel" class="panel">
+      <div class="multipliers">
+        <button class="mult active" data-value="S">Simple</button>
+        <button class="mult" data-value="D">Double</button>
+        <button class="mult" data-value="T">Triple</button>
+      </div>
+      <div id="numbers" class="numbers"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Historique de la manche</h2>
+      <div id="turnHistory"></div>
+    </div>
+  </section>
+
+  <dialog id="profileDialog">
+    <form method="dialog" class="dialog-card">
+      <h2>Profil joueur</h2>
+      <input id="profileName" placeholder="Prénom">
+      <input id="profileAvatar" placeholder="Initiales ou emoji" maxlength="3">
+      <div class="dialog-actions">
+        <button value="cancel" class="secondary">Annuler</button>
+        <button id="saveProfile" value="default" class="primary">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
 </main>
 
-<script>
-const $=s=>document.querySelector(s);
-const video=$("#video"),overlay=$("#overlay"),ctx=overlay.getContext("2d");
-const work=$("#work"),ctxW=work.getContext("2d"),referenceCanvas=$("#referenceCanvas"),ctxR=referenceCanvas.getContext("2d");
-let stream=null,referenceReady=false,activeCal=null;
-let calPoints={top:null,right:null,bottom:null,left:null};
-let axis=null,endpoints=null,selectedEndpoint=0,manualPoint=null;
-const boardOrder=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
-
-function setStatus(t){$("#status").textContent=t}
-function viewport(){
-  const r=video.getBoundingClientRect();
-  overlay.width=Math.max(1,Math.round(r.width*devicePixelRatio));
-  overlay.height=Math.max(1,Math.round(r.height*devicePixelRatio));
-  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
-  return r;
-}
-function allCalibrated(){return Object.values(calPoints).every(Boolean)}
-function calibration(){
-  if(!allCalibrated())return null;
-  const cx=(calPoints.left.x+calPoints.right.x+calPoints.top.x+calPoints.bottom.x)/4;
-  const cy=(calPoints.left.y+calPoints.right.y+calPoints.top.y+calPoints.bottom.y)/4;
-  const rx=Math.hypot(calPoints.right.x-calPoints.left.x,calPoints.right.y-calPoints.left.y)/2;
-  const ry=Math.hypot(calPoints.bottom.x-calPoints.top.x,calPoints.bottom.y-calPoints.top.y)/2;
-  const ux={x:(calPoints.right.x-calPoints.left.x)/(2*rx),y:(calPoints.right.y-calPoints.left.y)/(2*rx)};
-  const uy={x:(calPoints.bottom.x-calPoints.top.x)/(2*ry),y:(calPoints.bottom.y-calPoints.top.y)/(2*ry)};
-  return{cx,cy,rx,ry,ux,uy};
-}
-function draw(){
-  const r=viewport();ctx.clearRect(0,0,r.width,r.height);
-  Object.entries(calPoints).forEach(([k,p])=>{if(p)drawPoint(p.x,p.y,"#277bef",7,k[0].toUpperCase())});
-  const c=calibration();
-  if(c){
-    ctx.strokeStyle="#277bef";ctx.lineWidth=3;ctx.beginPath();
-    for(let i=0;i<=120;i++){
-      const a=i/120*Math.PI*2;
-      const x=c.cx+c.ux.x*c.rx*Math.cos(a)+c.uy.x*c.ry*Math.sin(a);
-      const y=c.cy+c.ux.y*c.rx*Math.cos(a)+c.uy.y*c.ry*Math.sin(a);
-      if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)
-    }
-    ctx.stroke();
-    ctx.strokeStyle="#ffffff55";ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(calPoints.left.x,calPoints.left.y);ctx.lineTo(calPoints.right.x,calPoints.right.y);
-    ctx.moveTo(calPoints.top.x,calPoints.top.y);ctx.lineTo(calPoints.bottom.x,calPoints.bottom.y);ctx.stroke()
-  }
-  if(axis){
-    ctx.strokeStyle="#25d7ff";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(axis.a.x,axis.a.y);ctx.lineTo(axis.b.x,axis.b.y);ctx.stroke()
-  }
-  if(endpoints){
-    drawPoint(endpoints[0].x,endpoints[0].y,"#ff49d6",8,"A");
-    drawPoint(endpoints[1].x,endpoints[1].y,"#ff49d6",8,"B")
-  }
-  const p=manualPoint||endpoints?.[selectedEndpoint];
-  if(p)drawPoint(p.x,p.y,"#f2c85b",11,"")
-}
-function drawPoint(x,y,color,r,label){
-  ctx.fillStyle=color;ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();
-  if(label){ctx.fillStyle="#111";ctx.font="bold 10px system-ui";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(label,x,y)}
-}
-document.querySelectorAll(".calBtn").forEach(b=>b.addEventListener("click",()=>{activeCal=b.dataset.key;setStatus("Touche maintenant le point "+b.querySelector("span").textContent.toLowerCase())}));
-overlay.addEventListener("pointerdown",e=>{
-  const r=overlay.getBoundingClientRect(),p={x:e.clientX-r.left,y:e.clientY-r.top};
-  if(activeCal){
-    calPoints[activeCal]=p;$("#"+activeCal+"State").textContent="OK";$("#"+activeCal+"State").classList.add("done");activeCal=null;
-    setStatus(allCalibrated()?"Calibration terminée. Prends une photo de référence.":"Point enregistré. Continue la calibration.");draw();return
-  }
-  if(allCalibrated()){
-    manualPoint=p;updateScore(p,null);draw();setStatus("Pointe corrigée manuellement.")
-  }
-});
-["threshold","minPixels","endpointBias"].forEach(id=>$("#"+id).addEventListener("input",()=>{$("#"+id+"V").textContent=$("#"+id).value}));
-
-async function startCamera(){
-  try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},audio:false});
-    video.srcObject=stream;await video.play();$("#reference").disabled=false;setStatus("Caméra active. Calibre les quatre points.");draw()
-  }catch(e){setStatus("Impossible d’ouvrir la caméra : "+e.message)}
-}
-function capture(canvas,context){
-  const vw=video.videoWidth,vh=video.videoHeight;if(!vw||!vh)throw new Error("Vidéo non prête.");
-  const w=720,h=Math.round(w*vh/vw);canvas.width=w;canvas.height=h;context.drawImage(video,0,0,w,h)
-}
-function takeReference(){
-  if(!allCalibrated())return setStatus("Termine d’abord les quatre points de calibration.");
-  try{
-    capture(referenceCanvas,ctxR);referenceReady=true;axis=null;endpoints=null;manualPoint=null;$("#detect").disabled=false;$("#resultPanel").classList.add("hidden");
-    setStatus("Référence prise. Lance une seule fléchette sans déplacer le téléphone.");draw()
-  }catch(e){setStatus(e.message)}
-}
-function mapToBoard(point){
-  const c=calibration(),dx=point.x-c.cx,dy=point.y-c.cy;
-  const nx=(dx*c.ux.x+dy*c.ux.y)/c.rx;
-  const ny=(dx*c.uy.x+dy*c.uy.y)/c.ry;
-  return{nx,ny,dist:Math.hypot(nx,ny)}
-}
-function scorePoint(point){
-  const b=mapToBoard(point),d=b.dist;
-  if(d>1.05)return{zone:"Hors cible",score:0,dist:d};
-  if(d<=0.037)return{zone:"DBULL",score:50,dist:d};
-  if(d<=0.092)return{zone:"BULL",score:25,dist:d};
-  let angle=Math.atan2(b.nx,-b.ny)*180/Math.PI;if(angle<0)angle+=360;
-  const sector=Math.floor((angle+9)/18)%20,number=boardOrder[sector];
-  let prefix="S",score=number;
-  if(d>=0.58&&d<=0.66){prefix="T";score=number*3}
-  else if(d>=0.93&&d<=1.0){prefix="D";score=number*2}
-  return{zone:prefix+number,score,dist:d}
-}
-function updateScore(point,confidence){
-  const r=scorePoint(point);$("#zone").textContent=r.zone;$("#score").textContent=r.score;$("#distance").textContent=(r.dist*100).toFixed(1)+" %";
-  $("#confidence").textContent=confidence==null?"Manuel":confidence+" %";$("#resultPanel").classList.remove("hidden")
-}
-function detect(){
-  if(!referenceReady)return;
-  try{
-    capture(work,ctxW);
-    const before=ctxR.getImageData(0,0,work.width,work.height),after=ctxW.getImageData(0,0,work.width,work.height);
-    const rect=video.getBoundingClientRect(),sx=work.width/rect.width,sy=work.height/rect.height,c=calibration();
-    const threshold=+$("#threshold").value,minPixels=+$("#minPixels").value;
-    const pts=[],step=3;
-    for(let y=0;y<work.height;y+=step)for(let x=0;x<work.width;x+=step){
-      const vx=x/sx,vy=y/sy;
-      const b=mapToBoard({x:vx,y:vy});if(b.dist>1.03)continue;
-      let diff=0;
-      for(let oy=0;oy<step&&y+oy<work.height;oy++)for(let ox=0;ox<step&&x+ox<work.width;ox++){
-        const i=((y+oy)*work.width+x+ox)*4;
-        diff+=(Math.abs(after.data[i]-before.data[i])+Math.abs(after.data[i+1]-before.data[i+1])+Math.abs(after.data[i+2]-before.data[i+2]))/3
-      }
-      diff/=step*step;if(diff>threshold)pts.push({x:vx,y:vy,w:diff})
-    }
-    if(pts.length<minPixels)throw new Error("Pas assez de pixels modifiés.");
-
-    let sw=0,mx=0,my=0;pts.forEach(p=>{sw+=p.w;mx+=p.x*p.w;my+=p.y*p.w});mx/=sw;my/=sw;
-    let sxx=0,syy=0,sxy=0;pts.forEach(p=>{const dx=p.x-mx,dy=p.y-my;sxx+=p.w*dx*dx;syy+=p.w*dy*dy;sxy+=p.w*dx*dy});
-    const angle=.5*Math.atan2(2*sxy,sxx-syy),ux=Math.cos(angle),uy=Math.sin(angle);
-    let minT=Infinity,maxT=-Infinity;pts.forEach(p=>{const t=(p.x-mx)*ux+(p.y-my)*uy;minT=Math.min(minT,t);maxT=Math.max(maxT,t)});
-    endpoints=[{x:mx+ux*minT,y:my+uy*minT},{x:mx+ux*maxT,y:my+uy*maxT}];
-    axis={a:endpoints[0],b:endpoints[1]};manualPoint=null;
-
-    const bias=+$("#endpointBias").value/100;
-    const d0=mapToBoard(endpoints[0]).dist,d1=mapToBoard(endpoints[1]).dist;
-    selectedEndpoint=(d0+bias<d1)?0:1;
-    const spread=Math.max(1,maxT-minT),orth=Math.sqrt(Math.max(0,(sxx+syy)/sw));
-    const confidence=Math.max(10,Math.min(95,Math.round(35+spread/2-orth/5)));
-    updateScore(endpoints[selectedEndpoint],confidence);draw();
-    setStatus("Axe détecté. Le point jaune est la pointe estimée. Utilise « autre extrémité » ou touche la vraie pointe.")
-  }catch(e){setStatus("Détection insuffisante : "+e.message+" Tu peux toucher directement la pointe sur l’image.")}
-}
-$("#swapEndpoint").addEventListener("click",()=>{if(!endpoints)return;manualPoint=null;selectedEndpoint=1-selectedEndpoint;updateScore(endpoints[selectedEndpoint],null);draw();setStatus("Autre extrémité sélectionnée.")});
-$("#startCamera").addEventListener("click",startCamera);
-$("#reference").addEventListener("click",takeReference);
-$("#detect").addEventListener("click",detect);
-window.addEventListener("resize",draw);
-</script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
