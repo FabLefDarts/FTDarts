@@ -992,11 +992,17 @@ async function playComputerTurn(){
     return;
   }
 
-  const player=game.players[game.current];
+  const computerIndex=game.current;
+  const player=game.players[computerIndex];
+
   if(!player?.isComputer){
     computerThinking=false;
     return;
   }
+
+  const modeBefore=game.mode;
+  const scoreBefore=player.score;
+  const worldIndexBefore=player.worldIndex||0;
 
   voiceLoop=false;
   try{destroyRecognition()}catch{}
@@ -1004,7 +1010,7 @@ async function playComputerTurn(){
   $("#voiceStatus").textContent=`${player.name} réfléchit…`;
   $("#voiceEngineState").textContent="Micro : ARRÊT · Tour ordinateur";
 
-  const opponents=game.players.filter((_,index)=>index!==game.current);
+  const opponents=game.players.filter((_,index)=>index!==computerIndex);
 
   if(game.mode==="cricket"){
     pending=[
@@ -1025,6 +1031,45 @@ async function playComputerTurn(){
   await announce(`${player.name} joue ${spoken}`);
 
   await commitTurn();
+
+  const completedPlayer=game.players[computerIndex];
+  const lastTurn=game.history.at(-1);
+
+  if(modeBefore==="201"||modeBefore==="301"||modeBefore==="501"){
+    const scored=lastTurn?.label==="BUST"||lastTurn?.label==="Pas ouvert"
+      ?0
+      :Number(lastTurn?.label)||Math.max(0,scoreBefore-completedPlayer.score);
+
+    if(lastTurn?.label==="BUST"){
+      await announce(`${player.name} fait BUST. Zéro point. Il lui reste ${completedPlayer.score}.`);
+    }else if(lastTurn?.label==="Pas ouvert"){
+      await announce(`${player.name} ne marque pas. Il lui reste ${completedPlayer.score}.`);
+    }else if(game.winner===computerIndex){
+      await announce(`${player.name} marque ${scored} points et termine la partie.`);
+    }else{
+      await announce(`${player.name} marque ${scored} points. Il lui reste ${completedPlayer.score}.`);
+    }
+  }else if(modeBefore==="cricket"){
+    const label=lastTurn?.label||"0 marque";
+    const totalScore=completedPlayer.score||0;
+    await announce(
+      totalScore>0
+        ?`${player.name} réalise ${label}. Son score total est de ${totalScore} points.`
+        :`${player.name} réalise ${label}.`
+    );
+  }else if(modeBefore==="world"){
+    const advances=Math.max(0,(completedPlayer.worldIndex||0)-worldIndexBefore);
+    const nextTarget=WORLD_TARGETS[completedPlayer.worldIndex];
+
+    if(game.winner===computerIndex){
+      await announce(`${player.name} avance de ${advances} étape${advances>1?"s":""} et termine le Tour du monde.`);
+    }else if(advances===0){
+      await announce(`${player.name} ne valide aucune cible. Il reste sur le ${nextTarget===25?"bulle":nextTarget}.`);
+    }else{
+      await announce(`${player.name} avance de ${advances} étape${advances>1?"s":""}. Prochaine cible : ${nextTarget===25?"bulle":nextTarget}.`);
+    }
+  }
+
   computerThinking=false;
 
   if(game?.winner===null){
