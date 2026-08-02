@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#080b10">
-  <title>FT Darts V5.4.2</title>
+  <title>FT Darts V5.5.2</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=55">
 </head>
 <body>
 <main>
@@ -62,9 +62,17 @@
 
       <div class="panel">
         <h2>Premier joueur</h2>
-        <div class="choice-grid">
-          <button class="choice starter-rule active" data-value="random">Aléatoire</button>
-          <button class="choice starter-rule" data-value="center">Plus proche du centre</button>
+        <div class="starter-options">
+          <label class="starter-card selected" data-value="random">
+            <input type="radio" name="starterRule" value="random" checked>
+            <span class="starter-check">✓</span>
+            <span><strong>Aléatoire</strong><small>FT Darts choisit automatiquement</small></span>
+          </label>
+          <label class="starter-card" data-value="center">
+            <input type="radio" name="starterRule" value="center">
+            <span class="starter-check">○</span>
+            <span><strong>Plus proche du centre</strong><small>Chaque joueur place son impact sur la cible</small></span>
+          </label>
         </div>
         <p class="hint">En mode « plus proche du centre », chaque joueur place son impact sur une cible zoomable.</p>
       </div>
@@ -202,6 +210,6 @@
   </dialog>
 </main>
 
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=55"></script>
 </body>
 </html>

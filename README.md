@@ -1,23 +1,24 @@
-# FT Darts V5.4
+# FT Darts V5.5 — Correctif choix du premier joueur
 
-## Modifications
+## Correctif
 
-- Le mode mains libres est coché automatiquement au démarrage.
-- Chaque nouvelle partie reprend la valeur réellement cochée sur l'écran d'accueil.
-- Le mode « Plus proche du centre » affiche désormais une véritable cible :
-  - 20 secteurs et numéros ;
-  - anneau des doubles ;
-  - anneau des triples ;
-  - Bull et double Bull ;
-  - zoom ;
-  - positionnement tactile des impacts ;
-  - classement automatique selon la distance au centre.
+Le choix « Aléatoire / Plus proche du centre » utilise maintenant de vrais boutons radio adaptés aux écrans tactiles.
+
+Le choix sélectionné est clairement visible :
+- bordure verte ;
+- fond vert foncé ;
+- coche verte.
+
+Les fichiers JavaScript et CSS utilisent aussi un numéro de version afin d’éviter le chargement d’une ancienne version depuis le cache de l’iPhone.
 
 ## Mise à jour GitHub
 
-Remplace tous les fichiers du ZIP. Le nouveau fichier `dartboard.svg` est indispensable.
+Remplace tous les fichiers du ZIP.
 
-Après le commit, ouvre :
-https://fablefdarts.github.io/FTDarts/?v=54
+Après le commit, attends 1 à 3 minutes puis ouvre :
 
-Teste d'abord dans un onglet privé pour éviter l'ancien cache.
+https://fablefdarts.github.io/FTDarts/?v=55
+
+Teste dans un onglet privé la première fois.
+
+Lorsque tu touches « Plus proche du centre », la carte doit devenir verte. En lançant une partie locale ou en ligne, la cible doit ensuite s’afficher.

@@ -43,7 +43,25 @@ function switchTab(name){
 document.querySelectorAll(".game-mode").forEach(b=>b.addEventListener("click",()=>{setChoice(".game-mode",b);mode=b.dataset.value;$("#rulesPanel").classList.toggle("hidden",mode==="cricket")}));
 document.querySelectorAll(".start-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".start-rule",b);startRule=b.dataset.value}));
 document.querySelectorAll(".finish-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".finish-rule",b);finishRule=b.dataset.value}));
-document.querySelectorAll(".starter-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".starter-rule",b);starterRule=b.dataset.value}));
+document.querySelectorAll('input[name="starterRule"]').forEach(input=>{
+  input.addEventListener("change",()=>{
+    starterRule=input.value;
+    document.querySelectorAll(".starter-card").forEach(card=>{
+      const selected=card.dataset.value===starterRule;
+      card.classList.toggle("selected",selected);
+      const check=card.querySelector(".starter-check");
+      if(check)check.textContent=selected?"✓":"○";
+    });
+  });
+});
+document.querySelectorAll(".starter-card").forEach(card=>{
+  card.addEventListener("click",()=>{
+    const input=card.querySelector('input[name="starterRule"]');
+    if(!input)return;
+    input.checked=true;
+    input.dispatchEvent(new Event("change",{bubbles:true}));
+  });
+});
 document.querySelectorAll(".mult").forEach(b=>b.addEventListener("click",()=>{setChoice(".mult",b);mult=b.dataset.value}));
 function setChoice(sel,active){document.querySelectorAll(sel).forEach(x=>x.classList.remove("active"));active.classList.add("active")}
 
