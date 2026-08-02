@@ -1,43 +1,37 @@
-# FT Darts V5.8.8 — Vocal fléchette par fléchette
+# FT Darts V5.8.9 — Ordinateur Cricket
 
-## Nouveautés
+## Lancer une partie
 
-### Score restant pendant la volée
+1. Garde un seul joueur humain.
+2. Sélectionne Cricket.
+3. Active « Jouer contre l’ordinateur ».
+4. Choisis Facile, Moyen ou Fort.
+5. Lance « Jouer sur ce téléphone ».
 
-Après la première ou la deuxième fléchette, FT Darts affiche :
+## Niveaux
 
-- le score qu'il reste à faire ;
-- le nombre de fléchettes encore disponibles ;
-- le finish possible avec uniquement ces fléchettes.
+### Facile
+- environ 34 % de chance de toucher la cible visée ;
+- très peu de triples ;
+- stratégie irrégulière ;
+- adapté pour découvrir le Cricket.
 
-Exemple :
-- score restant au début : 28 ;
-- S8 puis S5 ;
-- affichage : `Il reste 15 · 1 fléchette · S15`.
+### Moyen
+- environ 59 % de chance de toucher ;
+- vise d’abord les grosses cibles ;
+- marque parfois des points ;
+- bon niveau loisir.
 
-### Vocal fléchette par fléchette
+### Fort
+- environ 82 % de chance de toucher ;
+- beaucoup plus de triples ;
+- ferme rapidement les cibles ;
+- marque pour conserver ou reprendre l’avantage.
 
-Il n'est plus nécessaire d'annoncer toute la volée en une fois.
-
-Exemple :
-1. dire `simple 8` ;
-2. FT Darts conserve S8 ;
-3. dire `simple 5` ;
-4. FT Darts conserve S8 et S5 ;
-5. dire `15` ;
-6. la volée est validée.
-
-Les fléchettes déjà reconnues restent affichées et en mémoire.
-
-### Annonce de la volée
-
-En 201, 301 et 501, après la troisième fléchette, le téléphone annonce le score total du joueur.
-
-Exemple :
-`Fabien marque 72 points. Au tour de Thibault.`
+L’ordinateur joue automatiquement après ta volée.
 
 ## GitHub
 
-Remplace tous les fichiers, puis ouvre :
+Remplace tous les fichiers puis ouvre :
 
-https://fablefdarts.github.io/FTDarts/?v=588
+https://fablefdarts.github.io/FTDarts/?v=589

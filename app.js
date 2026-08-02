@@ -77,9 +77,9 @@ let profiles=load("ft_profiles",[
 ]);
 let matches=load("ft_matches",[]);
 let selectedPlayerIds=["fabien","thibault"];
-let mode="501",startRule="free",finishRule="free",starterRule="random",mult="S";
+let mode="501",startRule="free",finishRule="free",starterRule="random",computerLevel="easy",mult="S";
 let options={handsFree:true,voiceAnnounce:true,finishAdvice:true};
-let game=null,pending=[],online=false,roomCode="",myClientId="",dbApi=null,roomRef=null,unsubscribe=null,recognition=null,voiceLoop=false;
+let game=null,pending=[],online=false,roomCode="",myClientId="",dbApi=null,roomRef=null,unsubscribe=null,recognition=null,voiceLoop=false,computerThinking=false;
 let centerState={index:0,points:[],current:null,zoom:1,onlineIntent:false};
 
 function saveLocal(){localStorage.setItem("ft_profiles",JSON.stringify(profiles));localStorage.setItem("ft_matches",JSON.stringify(matches))}
@@ -111,6 +111,7 @@ document.querySelectorAll(".game-mode").forEach(b=>b.addEventListener("click",()
   mode=b.dataset.value;
   $("#rulesPanel").classList.toggle("hidden",mode==="cricket"||mode==="world");
   $("#worldModeHelp").classList.toggle("hidden",mode!=="world");
+  $("#cricketComputerPanel").classList.toggle("hidden",mode!=="cricket");
 }));
 document.querySelectorAll(".start-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".start-rule",b);startRule=b.dataset.value}));
 document.querySelectorAll(".finish-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".finish-rule",b);finishRule=b.dataset.value}));
@@ -131,6 +132,25 @@ document.querySelectorAll(".starter-card").forEach(card=>{
     if(!input)return;
     input.checked=true;
     input.dispatchEvent(new Event("change",{bubbles:true}));
+  });
+});
+
+$("#cricketComputerEnabled").addEventListener("change",event=>{
+  $("#computerLevelChoices").classList.toggle("hidden",!event.target.checked);
+  $("#computerLevelHelp").classList.toggle("hidden",!event.target.checked);
+});
+
+const computerLevelDescriptions={
+  easy:"Facile : beaucoup de ratés et peu de triples.",
+  medium:"Moyen : jeu régulier, ferme les grosses cibles et marque parfois.",
+  hard:"Fort : ferme rapidement et marque des points avec stratégie."
+};
+
+document.querySelectorAll(".computer-level").forEach(button=>{
+  button.addEventListener("click",()=>{
+    setChoice(".computer-level",button);
+    computerLevel=button.dataset.value;
+    $("#computerLevelHelp").textContent=computerLevelDescriptions[computerLevel];
   });
 });
 document.querySelectorAll(".mult").forEach(b=>b.addEventListener("click",()=>{setChoice(".mult",b);mult=b.dataset.value}));
@@ -167,6 +187,43 @@ function renderProfiles(){
 }
 
 function startScore(){return mode==="cricket"||mode==="world"?0:Number(mode)}
+function computerProfile(level){
+  const names={
+    easy:"Ordinateur facile",
+    medium:"Ordinateur moyen",
+    hard:"Ordinateur fort"
+  };
+  return{
+    id:`computer_${level}`,
+    name:names[level]||"Ordinateur",
+    avatar:"🤖"
+  };
+}
+
+function newComputerPlayer(level){
+  const p=computerProfile(level);
+  return{
+    profileId:p.id,
+    name:p.name,
+    avatar:p.avatar,
+    clientId:"",
+    isComputer:true,
+    computerLevel:level,
+    score:0,
+    opened:true,
+    turns:0,
+    total:0,
+    bestTurn:0,
+    doublesHit:0,
+    doublesAttempted:0,
+    marks:Object.fromEntries(TARGETS.map(t=>[t,0])),
+    worldIndex:0,
+    worldDarts:0,
+    worldHits:0,
+    worldMisses:0
+  };
+}
+
 function newPlayer(id,clientId=""){
   const p=profile(id);
   return{
@@ -186,7 +243,35 @@ function createGame(ids,clients=[]){
     voiceAnnounce:$("#voiceAnnounce").checked,
     finishAdvice:$("#finishAdvice").checked
   };
-  return{mode,startRule,finishRule,starterRule,options:{...options},current:0,winner:null,players:ids.map((id,i)=>newPlayer(id,clients[i]||"")),history:[],createdAt:Date.now()}
+
+  const players=ids.map((id,i)=>newPlayer(id,clients[i]||""));
+  const computerEnabled=
+    mode==="cricket"&&
+    !online&&
+    $("#cricketComputerEnabled").checked&&
+    players.length===1;
+
+  if(computerEnabled){
+    players.push(newComputerPlayer(computerLevel));
+    if(starterRule==="random"&&Math.random()<.5){
+      players.reverse();
+    }
+  }
+
+  return{
+    mode,
+    startRule,
+    finishRule,
+    starterRule,
+    computerEnabled,
+    computerLevel:computerEnabled?computerLevel:null,
+    options:{...options},
+    current:0,
+    winner:null,
+    players,
+    history:[],
+    createdAt:Date.now()
+  };
 }
 
 $("#startLocal").addEventListener("click",()=>{online=false;beginGameCreation(false)});
@@ -328,7 +413,11 @@ function openGame(){
   if(options.handsFree)setTimeout(startHandsFree,700);
 }
 $("#leaveGame").addEventListener("click",()=>location.reload());
-function myTurn(){return !online||game.players[game.current]?.clientId===myClientId}
+function myTurn(){
+  if(!game)return false;
+  if(game.players[game.current]?.isComputer)return false;
+  return !online||game.players[game.current]?.clientId===myClientId;
+}
 function fmt(d){if(!d)return"—";if(d.zone===0)return"MISS";if(d.zone===25)return d.mult==="D"?"DBULL":"BULL";return d.mult+d.zone}
 function dartScore(d){if(d.zone===0)return 0;return d.zone===25?(d.mult==="D"?50:25):d.zone*MULT[d.mult]}
 function marks(n){return n<=0?"—":n===1?"／":n===2?"X":"⊗"}
@@ -401,12 +490,12 @@ function advice(){
 }
 function renderGame(){
   $("#gameTitle").textContent=game.mode==="cricket"?"CRICKET":game.mode==="world"?"TOUR DU MONDE":game.mode;
-  const soloLabel=game.players.length===1?" · Entraînement solo":"";
+  const soloLabel=game.computerEnabled?` · Contre ordinateur ${game.computerLevel==="easy"?"facile":game.computerLevel==="medium"?"moyen":"fort"}`:(game.players.length===1?" · Entraînement solo":"");
   $("#gameRules").textContent=
     game.mode==="cricket"?"Règles Cricket"+soloLabel:
     game.mode==="world"?"1 à 20 puis Bull"+soloLabel:
     `${game.startRule==="free"?"Début libre":"Double-in"} · ${game.finishRule==="free"?"Finish libre":"Double-out"}${soloLabel}`;
-  $("#connectionBadge").textContent=online?roomCode:(game.players.length===1?"SOLO":"LOCAL");
+  $("#connectionBadge").textContent=online?roomCode:(game.computerEnabled?"VS IA":game.players.length===1?"SOLO":"LOCAL");
   $("#currentPlayer").textContent=game.winner!==null?`${game.players[game.winner].name} gagne !`:game.players[game.current].name;
   $("#checkoutAdvice").textContent=game.winner!==null?"Terminé":advice();
   $("#entryPanel").classList.toggle("hidden",!myTurn()||game.winner!==null);
@@ -504,6 +593,8 @@ function renderGame(){
     }
   }
   $("#turnHistory").innerHTML=game.history.length?[...game.history].reverse().slice(0,15).map(h=>`<div class="history-row"><div><strong>${h.name}</strong><p class="hint">${h.darts.map(fmt).join(" · ")}</p></div><span class="pill">${h.label}</span></div>`).join(""):'<p class="hint">Aucune volée.</p>';
+
+  scheduleComputerTurn();
 }
 function addDart(zone){if(!myTurn())return;pending.push({zone,mult:zone===25&&mult==="T"?"S":mult});if(pending.length===3)setTimeout(commitTurn,180);renderGame()}
 const numbers=$("#numbers");
@@ -542,8 +633,132 @@ miss.addEventListener("click",()=>{
 });
 numbers.appendChild(miss);
 
-async async function commitTurn(){
-  if(pending.length!==3||!myTurn()||game.winner!==null)return;
+async async function computerDifficulty(level){
+  if(level==="hard"){
+    return{hitChance:.82,doubleChance:.20,tripleChance:.43,targetMistake:.05};
+  }
+  if(level==="medium"){
+    return{hitChance:.59,doubleChance:.17,tripleChance:.23,targetMistake:.14};
+  }
+  return{hitChance:.34,doubleChance:.10,tripleChance:.07,targetMistake:.32};
+}
+
+function cricketTargetValue(target){
+  return target==="BULL"?25:Number(target);
+}
+
+function chooseComputerCricketTarget(player,opponents,level){
+  const targetsToClose=TARGETS.filter(target=>player.marks[target]<3);
+  const targetsToScore=TARGETS.filter(target=>
+    player.marks[target]>=3&&opponents.some(opponent=>opponent.marks[target]<3)
+  );
+
+  const opponentBest=Math.max(0,...opponents.map(opponent=>opponent.score));
+
+  if(level==="hard"&&targetsToScore.length&&player.score<=opponentBest+40&&Math.random()<.58){
+    return [...targetsToScore].sort((a,b)=>cricketTargetValue(b)-cricketTargetValue(a))[0];
+  }
+
+  if(level==="medium"&&targetsToScore.length&&Math.random()<.27){
+    return [...targetsToScore].sort((a,b)=>cricketTargetValue(b)-cricketTargetValue(a))[0];
+  }
+
+  if(targetsToClose.length){
+    const sorted=[...targetsToClose].sort((a,b)=>cricketTargetValue(b)-cricketTargetValue(a));
+    if(level==="hard")return sorted[0];
+    if(level==="medium")return sorted[Math.min(sorted.length-1,Math.floor(Math.random()*3))];
+    return sorted[Math.floor(Math.random()*sorted.length)];
+  }
+
+  if(targetsToScore.length){
+    return [...targetsToScore].sort((a,b)=>cricketTargetValue(b)-cricketTargetValue(a))[0];
+  }
+
+  return TARGETS[Math.floor(Math.random()*TARGETS.length)];
+}
+
+function generateComputerCricketDart(player,opponents,level){
+  const cfg=computerDifficulty(level);
+  let target=chooseComputerCricketTarget(player,opponents,level);
+
+  if(Math.random()<cfg.targetMistake){
+    target=TARGETS[Math.floor(Math.random()*TARGETS.length)];
+  }
+
+  if(Math.random()>cfg.hitChance){
+    return{zone:0,mult:"S"};
+  }
+
+  const zone=target==="BULL"?25:Number(target);
+  const roll=Math.random();
+
+  if(zone===25){
+    return{zone:25,mult:roll<cfg.doubleChance?"D":"S"};
+  }
+
+  if(roll<cfg.tripleChance)return{zone,mult:"T"};
+  if(roll<cfg.tripleChance+cfg.doubleChance)return{zone,mult:"D"};
+  return{zone,mult:"S"};
+}
+
+function scheduleComputerTurn(){
+  if(!game||game.winner!==null||computerThinking)return;
+
+  const current=game.players[game.current];
+  if(game.mode!=="cricket"||!current?.isComputer)return;
+
+  computerThinking=true;
+  setTimeout(playComputerTurn,700);
+}
+
+async function playComputerTurn(){
+  if(!game||game.winner!==null||game.mode!=="cricket"){
+    computerThinking=false;
+    return;
+  }
+
+  const player=game.players[game.current];
+  if(!player?.isComputer){
+    computerThinking=false;
+    return;
+  }
+
+  voiceLoop=false;
+  try{destroyRecognition()}catch{}
+
+  $("#voiceStatus").textContent=`${player.name} réfléchit…`;
+  $("#voiceEngineState").textContent="Micro : ARRÊT · Tour ordinateur";
+
+  const opponents=game.players.filter((_,index)=>index!==game.current);
+
+  pending=[
+    generateComputerCricketDart(player,opponents,player.computerLevel),
+    generateComputerCricketDart(player,opponents,player.computerLevel),
+    generateComputerCricketDart(player,opponents,player.computerLevel)
+  ];
+
+  renderGame();
+  await new Promise(resolve=>setTimeout(resolve,850));
+
+  const spoken=pending.map(fmt).join(", ");
+  await announce(`${player.name} joue ${spoken}`);
+
+  await commitTurn();
+  computerThinking=false;
+
+  if(game?.winner===null){
+    const human=game.players[game.current];
+    await announce(`Au tour de ${human.name}`);
+
+    if(options.handsFree){
+      voiceLoop=true;
+      resetVoiceCycle("Tour joueur");
+    }
+  }
+}
+
+async function commitTurn(){
+  if(pending.length!==3||(!myTurn()&&!computerThinking)||game.winner!==null)return;
   const snapshot=JSON.parse(JSON.stringify(game)),pi=game.current,oi=(pi+1)%game.players.length,p=game.players[pi],darts=JSON.parse(JSON.stringify(pending));
   if(game.mode==="world"){
     let advances=0;
@@ -597,19 +812,26 @@ async async function commitTurn(){
   }
   pending=[];await saveGame();
   if(game.winner!==null){finishMatch();announce(game.players.length===1?`${game.players[game.winner].name}, entraînement terminé`:`${game.players[game.winner].name} gagne la partie`);voiceLoop=false;destroyRecognition();setVoiceState(VoiceState.IDLE,"Partie terminée")}
-  else{if(!voiceLoop)announceTurn()}
+  else{if(!voiceLoop&&!computerThinking)announceTurn()}
 }
 $("#undoTurn").addEventListener("click",async()=>{if(!game.history.length)return;const last=game.history.at(-1);if(online&&last.snapshot.players[last.snapshot.current]?.clientId!==myClientId)return alert("Seul le joueur concerné peut annuler.");pending=last.darts;game=last.snapshot;await saveGame()});
 
 function finishMatch(){
   const winner=game.players[game.winner],losers=game.players.filter((_,i)=>i!==game.winner);
-  const match={id:uid(),date:Date.now(),mode:game.mode,winner:winner.profileId,players:game.players.map(p=>p.profileId),scores:game.players.map(p=>p.score)};
+  const match={id:uid(),date:Date.now(),mode:game.mode,winner:winner.profileId,winnerName:winner.name,players:game.players.map(p=>p.profileId),playerNames:game.players.map(p=>p.name),scores:game.players.map(p=>p.score)};
   matches.unshift(match);
   game.players.forEach((gp,i)=>{
-    const pr=profile(gp.profileId);if(!pr)return;pr.matches++;pr.totalScore+=gp.total;pr.totalTurns+=gp.turns;pr.bestTurn=Math.max(pr.bestTurn,gp.bestTurn);pr.doublesHit+=gp.doublesHit||0;pr.doublesAttempted+=gp.doublesAttempted||0;
+    if(gp.isComputer)return;
+    const pr=profile(gp.profileId);if(!pr)return;
+    pr.matches++;
+    pr.totalScore+=gp.total;
+    pr.totalTurns+=gp.turns;
+    pr.bestTurn=Math.max(pr.bestTurn,gp.bestTurn);
+    pr.doublesHit+=gp.doublesHit||0;
+    pr.doublesAttempted+=gp.doublesAttempted||0;
     if(i===game.winner){pr.wins++;}else pr.losses++;
   });
-  if(game.players.length===2){
+  if(game.players.length===2&&!game.players.some(player=>player.isComputer)){
     const a=profile(game.players[0].profileId),b=profile(game.players[1].profileId),sa=game.winner===0?1:0,sb=1-sa;
     const ea=1/(1+10**((b.elo-a.elo)/400)),eb=1-ea,K=24;a.elo=Math.round(a.elo+K*(sa-ea));b.elo=Math.round(b.elo+K*(sb-eb));
   }
@@ -619,7 +841,7 @@ function finishMatch(){
 function renderStats(){
   const sorted=[...profiles].sort((a,b)=>b.elo-a.elo);
   $("#eloTable").innerHTML=sorted.map((p,i)=>`<div class="elo-row"><strong>#${i+1}</strong><div><strong>${p.name}</strong><p class="hint">${p.wins} victoires · Moy. ${p.totalTurns?(p.totalScore/p.totalTurns).toFixed(1):"0,0"}</p></div><span class="pill">${p.elo}</span></div>`).join("");
-  $("#matchesList").innerHTML=matches.length?matches.map(m=>`<div class="match-row"><div><strong>${profile(m.winner)?.name||"Joueur"} gagne</strong><p class="hint">${new Date(m.date).toLocaleDateString("fr-FR")} · ${m.mode}</p></div><span class="pill">${m.players.map(id=>profile(id)?.name).join(" vs ")}</span></div>`).join(""):'<p class="hint">Aucune partie terminée.</p>';
+  $("#matchesList").innerHTML=matches.length?matches.map(m=>`<div class="match-row"><div><strong>${profile(m.winner)?.name||m.winnerName||"Joueur"} gagne</strong><p class="hint">${new Date(m.date).toLocaleDateString("fr-FR")} · ${m.mode}</p></div><span class="pill">${(m.playerNames||m.players.map(id=>profile(id)?.name)).join(" vs ")}</span></div>`).join(""):'<p class="hint">Aucune partie terminée.</p>';
 }
 const achievementDefs=[
   {id:"first_win",name:"Première victoire",desc:"Gagner une partie",test:p=>p.wins>=1},
