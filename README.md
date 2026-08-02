@@ -1,36 +1,45 @@
-# FT Darts V5.8.17 — Annonce du score de l’ordinateur
+# FT Darts V5.8.19 — Correctif complet des nombres 10 à 20
 
-Après chaque volée de l’ordinateur, FT Darts annonce maintenant son résultat.
+Le moteur vocal a été revu pour les nombres :
 
-## 201, 301 et 501
+- 10
+- 11
+- 12
+- 13
+- 14
+- 15
+- 16
+- 17
+- 18
+- 19
+- 20
 
-Exemple :
+## Transcriptions corrigées
 
-`Ordinateur moyen marque 60 points. Il lui reste 241.`
+Exemples désormais compris comme une seule fléchette :
 
-En cas de BUST :
+- `1 1` → 11
+- `1 2` → 12
+- `1 3` → 13
+- `1 4` → 14
+- `1 5` → 15
+- `1 6` → 16
+- `1 7` → 17
+- `1 8` → 18
+- `1 9` → 19
+- `2 0` → 20
+- `un deux` → 12
+- `double un six` → double 16
+- `triple un neuf` → triple 19
 
-`Ordinateur moyen fait BUST. Zéro point. Il lui reste 32.`
+Le moteur privilégie maintenant l'alternative vocale qui correspond à une seule fléchette, au lieu de choisir celle qui contient le plus de chiffres.
 
-## Cricket
-
-FT Darts annonce :
-
-- le nombre de marques ou les points réalisés ;
-- le score total de l’ordinateur lorsqu’il a commencé à marquer.
-
-## Tour du monde
-
-FT Darts annonce :
-
-- le nombre d’étapes franchies ;
-- la prochaine cible ;
-- ou la fin du Tour du monde.
+Le Tour du monde conserve son fonctionnement particulier.
 
 ## GitHub
 
 Remplace tous les fichiers puis ouvre :
 
-https://fablefdarts.github.io/FTDarts/?v=5817
+https://fablefdarts.github.io/FTDarts/?v=5819
 
-Teste d’abord dans un onglet privé.
+Teste d'abord dans un onglet privé.

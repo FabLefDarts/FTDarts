@@ -838,6 +838,44 @@ function generateComputerCricketDart(player,opponents,level){
   return{zone,mult:"S"};
 }
 
+function waitForCommentatorToFinish(){
+  return new Promise(resolve=>{
+    const startedAt=Date.now();
+    let quietSince=null;
+
+    const check=()=>{
+      const speaking=
+        ("speechSynthesis"in window)&&
+        (speechSynthesis.speaking||speechSynthesis.pending);
+
+      const announcing=voiceState===VoiceState.ANNOUNCING;
+
+      if(speaking||announcing){
+        quietSince=null;
+      }else if(quietSince===null){
+        quietSince=Date.now();
+      }
+
+      // On exige 700 ms de silence complet avant de lancer l'ordinateur.
+      if(quietSince!==null&&Date.now()-quietSince>=700){
+        resolve();
+        return;
+      }
+
+      // Sécurité : ne jamais rester bloqué plus de 15 secondes.
+      if(Date.now()-startedAt>=15000){
+        resolve();
+        return;
+      }
+
+      setTimeout(check,120);
+    };
+
+    // Petite attente initiale pour laisser le temps à l'annonce de démarrer.
+    setTimeout(check,250);
+  });
+}
+
 function scheduleComputerTurn(){
   if(!game||game.winner!==null||computerThinking)return;
 
@@ -845,7 +883,18 @@ function scheduleComputerTurn(){
   if(!current?.isComputer)return;
 
   computerThinking=true;
-  setTimeout(playComputerTurn,700);
+
+  (async()=>{
+    await waitForCommentatorToFinish();
+
+    // Vérification au cas où la partie ou le joueur courant aurait changé.
+    if(!game||game.winner!==null||!game.players[game.current]?.isComputer){
+      computerThinking=false;
+      return;
+    }
+
+    await playComputerTurn();
+  })();
 }
 
 function allScoringDarts(){
@@ -1200,6 +1249,12 @@ function normalize(t){
     .replace(/[,.!?;:/\\|_-]/g," ")
     .replace(/\bvin\b/g," vingt")
     .replace(/\bving\b/g," vingt")
+    .replace(/\bonze\b/g," onze")
+    .replace(/\bdouze\b/g," douze")
+    .replace(/\btreize\b/g," treize")
+    .replace(/\bquatorze\b/g," quatorze")
+    .replace(/\bquinze\b/g," quinze")
+    .replace(/\bseize\b/g," seize")
     .replace(/\btripe\b/g," triple")
     .replace(/\bdoubl\b/g," double")
     .replace(/\bbullseye\b/g," cinquante")
@@ -1228,6 +1283,39 @@ function splitWorldNumberToken(token,slotsLeft){
   return[];
 }
 
+function normalizeSingleDartNumberPhrase(norm){
+  if(game?.mode==="world")return norm;
+
+  const numberWords={
+    "zero":"0","un":"1","une":"1","deux":"2","trois":"3","quatre":"4",
+    "cinq":"5","six":"6","sept":"7","huit":"8","neuf":"9"
+  };
+
+  const parts=norm.split(" ").filter(Boolean);
+  let multiplier="";
+
+  if(["simple","simples","s","double","doubles","d","triple","triples","t"].includes(parts[0])){
+    multiplier=parts.shift();
+  }
+
+  // Une seule fléchette annoncée sous la forme "1 2", "un deux",
+  // "double 1 6", etc. On ne regroupe que si la phrase ne contient
+  // rien d'autre, afin de ne pas transformer une volée complète.
+  if(parts.length===2){
+    const first=/^\d$/.test(parts[0])?parts[0]:numberWords[parts[0]];
+    const second=/^\d$/.test(parts[1])?parts[1]:numberWords[parts[1]];
+
+    if(first!==undefined&&second!==undefined){
+      const value=Number(first+second);
+      if(value>=10&&value<=20){
+        return `${multiplier?multiplier+" ":""}${value}`.trim();
+      }
+    }
+  }
+
+  return norm;
+}
+
 function parseVoice(text){
   let norm=normalize(text)
     .replace(/dix sept/g,"dix-sept")
@@ -1235,16 +1323,7 @@ function parseVoice(text){
     .replace(/dix neuf/g,"dix-neuf")
     .replace(/vingt cinq/g,"vingt-cinq");
 
-  // En 201, 301 et 501, Safari peut transcrire "treize"
-  // comme deux chiffres séparés : "1 3".
-  // Puisqu'une seule fléchette est annoncée à la fois,
-  // on regroupe 1 0 à 1 9 et 2 0 en un seul nombre.
-  if(game?.mode!=="world"){
-    norm=norm.replace(/\b([12])\s+([0-9])\b/g,(match,tens,units)=>{
-      const number=Number(tens+units);
-      return number>=10&&number<=20?String(number):match;
-    });
-  }
+  norm=normalizeSingleDartNumberPhrase(norm);
 
   if(norm.includes("annule"))return{command:"undo"};
   if(norm.includes("recommence")||norm.includes("efface"))return{command:"clear"};
@@ -1371,11 +1450,38 @@ function beginVoiceTurn(token){
     for(let i=0;i<e.results[0].length;i++)alternatives.push(e.results[0][i].transcript);
 
     let best=null;
+    let bestScore=-Infinity;
+
     for(const text of alternatives){
       const parsed=parseVoice(text);
-      if(parsed.command){best={text,parsed};break}
-      const count=parsed.darts?.length||0;
-      if(!best||count>(best.parsed.darts?.length||0))best={text,parsed};
+
+      if(parsed.command){
+        best={text,parsed};
+        break;
+      }
+
+      const darts=parsed.darts||[];
+      let score=0;
+
+      if(game?.mode==="world"){
+        // En Tour du monde, plusieurs fléchettes peuvent encore être annoncées ensemble.
+        score=darts.length*20;
+      }else{
+        // Dans les autres modes, l'application écoute désormais fléchette par fléchette.
+        // Une alternative donnant exactement une fléchette est prioritaire.
+        if(darts.length===1)score=100;
+        else if(darts.length===2)score=20;
+        else if(darts.length===3)score=10;
+
+        const dart=darts[0];
+        if(darts.length===1&&dart?.zone>=10&&dart?.zone<=20)score+=30;
+        if(/\b(10|11|12|13|14|15|16|17|18|19|20)\b/.test(parsed.normalized||""))score+=15;
+      }
+
+      if(score>bestScore){
+        bestScore=score;
+        best={text,parsed};
+      }
     }
 
     const text=best?.text||alternatives[0]||"";
