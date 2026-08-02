@@ -1184,11 +1184,22 @@ function splitWorldNumberToken(token,slotsLeft){
 }
 
 function parseVoice(text){
-  const norm=normalize(text)
+  let norm=normalize(text)
     .replace(/dix sept/g,"dix-sept")
     .replace(/dix huit/g,"dix-huit")
     .replace(/dix neuf/g,"dix-neuf")
     .replace(/vingt cinq/g,"vingt-cinq");
+
+  // En 201, 301 et 501, Safari peut transcrire "treize"
+  // comme deux chiffres séparés : "1 3".
+  // Puisqu'une seule fléchette est annoncée à la fois,
+  // on regroupe 1 0 à 1 9 et 2 0 en un seul nombre.
+  if(game?.mode!=="world"){
+    norm=norm.replace(/\b([12])\s+([0-9])\b/g,(match,tens,units)=>{
+      const number=Number(tens+units);
+      return number>=10&&number<=20?String(number):match;
+    });
+  }
 
   if(norm.includes("annule"))return{command:"undo"};
   if(norm.includes("recommence")||norm.includes("efface"))return{command:"clear"};

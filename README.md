@@ -1,43 +1,22 @@
-# FT Darts V5.8.15 — Ordinateur dans tous les modes
+# FT Darts V5.8.16 — Correctif vocal « treize »
 
-## Modifications
+Safari peut transcrire « treize » comme `1 3`.
 
-- `OUT` est affiché dans l'historique à la place de `MISS`.
-- Une fléchette simple est annoncée naturellement :
-  - S16 → « 16 »
-  - D16 → « double 16 »
-  - T20 → « triple 20 »
-  - OUT → « OUT »
+En 201, 301 et 501, FT Darts regroupe désormais automatiquement :
 
-## Ordinateur disponible dans tous les modes
+- `1 0` → 10
+- `1 1` → 11
+- `1 2` → 12
+- `1 3` → 13
+- jusqu’à `1 9` → 19
+- `2 0` → 20
 
-Avec un seul joueur humain, active « Jouer contre l'ordinateur » puis choisis :
-
-- Facile
-- Moyen
-- Fort
-
-Modes compatibles :
-
-- 201
-- 301
-- 501
-- Cricket
-- Tour du monde
-
-En 201, 301 et 501, l'ordinateur tient compte :
-
-- du score restant ;
-- du finish libre ou double-out ;
-- du double-in ;
-- des possibilités de sortie.
-
-En Tour du monde, il vise la cible actuelle dans l'ordre.
+Le mode Tour du monde conserve son fonctionnement particulier, dans lequel plusieurs chiffres peuvent représenter plusieurs fléchettes.
 
 ## GitHub
 
 Remplace tous les fichiers puis ouvre :
 
-https://fablefdarts.github.io/FTDarts/?v=5815
+https://fablefdarts.github.io/FTDarts/?v=5816
 
-Teste d'abord dans un onglet privé.
+Teste d’abord dans un onglet privé.
