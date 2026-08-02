@@ -151,7 +151,7 @@ document.querySelectorAll(".game-mode").forEach(b=>b.addEventListener("click",()
   mode=b.dataset.value;
   $("#rulesPanel").classList.toggle("hidden",mode==="cricket"||mode==="world");
   $("#worldModeHelp").classList.toggle("hidden",mode!=="world");
-  $("#cricketComputerPanel").classList.toggle("hidden",mode!=="cricket");
+  $("#cricketComputerPanel").classList.remove("hidden");
 }));
 document.querySelectorAll(".start-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".start-rule",b);startRule=b.dataset.value}));
 document.querySelectorAll(".finish-rule").forEach(b=>b.addEventListener("click",()=>{setChoice(".finish-rule",b);finishRule=b.dataset.value}));
@@ -181,9 +181,9 @@ $("#cricketComputerEnabled").addEventListener("change",event=>{
 });
 
 const computerLevelDescriptions={
-  easy:"Facile : beaucoup de ratés et peu de triples.",
-  medium:"Moyen : jeu régulier, ferme les grosses cibles et marque parfois.",
-  hard:"Fort : ferme rapidement et marque des points avec stratégie."
+  easy:"Facile : beaucoup de OUT, peu de triples et jeu irrégulier.",
+  medium:"Moyen : jeu régulier, bonnes cibles et quelques doubles/triples.",
+  hard:"Fort : précis, stratégique et performant sur les finishes."
 };
 
 document.querySelectorAll(".computer-level").forEach(button=>{
@@ -347,8 +347,8 @@ function newComputerPlayer(level){
     clientId:"",
     isComputer:true,
     computerLevel:level,
-    score:0,
-    opened:true,
+    score:startScore(),
+    opened:startRule==="free",
     turns:0,
     total:0,
     bestTurn:0,
@@ -384,7 +384,6 @@ function createGame(ids,clients=[]){
 
   const players=ids.map((id,i)=>newPlayer(id,clients[i]||""));
   const computerEnabled=
-    mode==="cricket"&&
     !online&&
     $("#cricketComputerEnabled").checked&&
     players.length===1;
@@ -556,7 +555,7 @@ function myTurn(){
   if(game.players[game.current]?.isComputer)return false;
   return !online||game.players[game.current]?.clientId===myClientId;
 }
-function fmt(d){if(!d)return"—";if(d.zone===0)return"MISS";if(d.zone===25)return d.mult==="D"?"DBULL":"BULL";return d.mult+d.zone}
+function fmt(d){if(!d)return"—";if(d.zone===0)return"OUT";if(d.zone===25)return d.mult==="D"?"DBULL":"BULL";return d.mult+d.zone}
 function dartScore(d){if(d.zone===0)return 0;return d.zone===25?(d.mult==="D"?50:25):d.zone*MULT[d.mult]}
 function marks(n){return n<=0?"—":n===1?"／":n===2?"X":"⊗"}
 function provisionalTurnState(){
@@ -762,7 +761,7 @@ numbers.appendChild(doubleBull);
 
 const miss=document.createElement("button");
 miss.className="number bull";
-miss.textContent="MISS / 0";
+miss.textContent="OUT / 0";
 miss.addEventListener("click",()=>{
   if(!myTurn())return;
   pending.push({zone:0,mult:"S"});
@@ -843,14 +842,152 @@ function scheduleComputerTurn(){
   if(!game||game.winner!==null||computerThinking)return;
 
   const current=game.players[game.current];
-  if(game.mode!=="cricket"||!current?.isComputer)return;
+  if(!current?.isComputer)return;
 
   computerThinking=true;
   setTimeout(playComputerTurn,700);
 }
 
+function allScoringDarts(){
+  const darts=[{zone:0,mult:"S"}];
+  for(let n=1;n<=20;n++){
+    darts.push({zone:n,mult:"S"},{zone:n,mult:"D"},{zone:n,mult:"T"});
+  }
+  darts.push({zone:25,mult:"S"},{zone:25,mult:"D"});
+  return darts;
+}
+
+const COMPUTER_SCORING_DARTS=allScoringDarts();
+
+function computerX01Accuracy(level){
+  if(level==="hard")return{target:.82,triple:.52,double:.65};
+  if(level==="medium")return{target:.60,triple:.28,double:.45};
+  return{target:.36,triple:.10,double:.24};
+}
+
+function chooseComputerX01Target(player,level,dartsLeft){
+  const remaining=player.score;
+  const requireDouble=game.finishRule==="double";
+
+  // Une sortie exacte est prioritaire lorsqu'elle existe.
+  const route=findFinish(remaining,requireDouble,dartsLeft);
+  if(route){
+    const first=route.split(" · ")[0];
+    if(first==="DBULL")return{zone:25,mult:"D"};
+    if(first==="BULL")return{zone:25,mult:"S"};
+
+    const mult=first[0];
+    const zone=Number(first.slice(1));
+    if(Number.isFinite(zone))return{zone,mult};
+  }
+
+  // En double-out, préparer une sortie confortable.
+  if(requireDouble&&remaining<=60){
+    if(remaining%2===0&&remaining<=40)return{zone:remaining/2,mult:"D"};
+    if(remaining>40&&remaining<=60)return{zone:remaining-40,mult:"S"};
+    if(remaining%2===1&&remaining>1)return{zone:1,mult:"S"};
+  }
+
+  if(level==="easy"){
+    const easyTargets=[20,19,18,17,16,15];
+    return{zone:easyTargets[Math.floor(Math.random()*easyTargets.length)],mult:"S"};
+  }
+
+  return{zone:20,mult:"T"};
+}
+
+function perturbComputerDart(target,level){
+  const cfg=computerX01Accuracy(level);
+  const desiredChance=target.mult==="D"?cfg.double:
+    target.mult==="T"?cfg.triple:cfg.target;
+
+  if(Math.random()<desiredChance)return target;
+
+  // Raté réaliste : simple voisin ou OUT.
+  if(Math.random()<.16)return{zone:0,mult:"S"};
+
+  const neighbor=Math.max(1,Math.min(20,target.zone+(Math.random()<.5?-1:1)));
+  return{zone:neighbor,mult:"S"};
+}
+
+function generateComputerX01Turn(player,level){
+  const darts=[];
+  let simulatedScore=player.score;
+  let simulatedOpened=player.opened;
+
+  for(let i=0;i<3;i++){
+    const tempPlayer={...player,score:simulatedScore,opened:simulatedOpened};
+    let target=chooseComputerX01Target(tempPlayer,level,3-i);
+
+    // Si double-in, chercher un double en priorité.
+    if(!simulatedOpened){
+      const preferred=level==="hard"?20:level==="medium"?16:8;
+      target={zone:preferred,mult:"D"};
+    }
+
+    let dart=perturbComputerDart(target,level);
+    darts.push(dart);
+
+    if(!simulatedOpened){
+      if(dart.mult==="D")simulatedOpened=true
+      else continue;
+    }
+
+    const value=dartScore(dart);
+    const after=simulatedScore-value;
+    const doubleBust=game.finishRule==="double"&&(
+      after===1||(after===0&&dart.mult!=="D")
+    );
+
+    if(after<0||doubleBust){
+      // Le moteur de jeu gérera le bust et remettra le score initial.
+      break;
+    }
+
+    simulatedScore=after;
+    if(simulatedScore===0)break;
+  }
+
+  while(darts.length<3)darts.push({zone:0,mult:"S"});
+  return darts;
+}
+
+function generateComputerWorldTurn(player,level){
+  const cfg=computerX01Accuracy(level);
+  const darts=[];
+
+  for(let i=0;i<3;i++){
+    const target=WORLD_TARGETS[player.worldIndex+i]??25;
+    const hitChance=level==="hard"?.78:level==="medium"?.55:.31;
+
+    if(Math.random()<hitChance){
+      darts.push({
+        zone:target===25?25:target,
+        mult:target===25&&Math.random()<.18?"D":"S"
+      });
+    }else if(Math.random()<.30){
+      darts.push({zone:0,mult:"S"});
+    }else{
+      const missTarget=target===25
+        ?20
+        :Math.max(1,Math.min(20,target+(Math.random()<.5?-1:1)));
+      darts.push({zone:missTarget,mult:"S"});
+    }
+  }
+
+  return darts;
+}
+
+function spokenDart(dart){
+  if(!dart||dart.zone===0)return"OUT";
+  if(dart.zone===25)return dart.mult==="D"?"double bulle":"bulle";
+  if(dart.mult==="T")return`triple ${dart.zone}`;
+  if(dart.mult==="D")return`double ${dart.zone}`;
+  return String(dart.zone);
+}
+
 async function playComputerTurn(){
-  if(!game||game.winner!==null||game.mode!=="cricket"){
+  if(!game||game.winner!==null){
     computerThinking=false;
     return;
   }
@@ -869,16 +1006,22 @@ async function playComputerTurn(){
 
   const opponents=game.players.filter((_,index)=>index!==game.current);
 
-  pending=[
-    generateComputerCricketDart(player,opponents,player.computerLevel),
-    generateComputerCricketDart(player,opponents,player.computerLevel),
-    generateComputerCricketDart(player,opponents,player.computerLevel)
-  ];
+  if(game.mode==="cricket"){
+    pending=[
+      generateComputerCricketDart(player,opponents,player.computerLevel),
+      generateComputerCricketDart(player,opponents,player.computerLevel),
+      generateComputerCricketDart(player,opponents,player.computerLevel)
+    ];
+  }else if(game.mode==="world"){
+    pending=generateComputerWorldTurn(player,player.computerLevel);
+  }else{
+    pending=generateComputerX01Turn(player,player.computerLevel);
+  }
 
   renderGame();
   await new Promise(resolve=>setTimeout(resolve,850));
 
-  const spoken=pending.map(fmt).join(", ");
+  const spoken=pending.map(spokenDart).join(", ");
   await announce(`${player.name} joue ${spoken}`);
 
   await commitTurn();
@@ -1325,6 +1468,9 @@ function prepareSpokenText(text){
     .replace(/\bmiss\b/gi,"OUT")
     .replace(/DBULL/gi,"double bulle")
     .replace(/\bBULL\b/gi,"bulle")
+    .replace(/\bS\s*(\d{1,2})\b/gi,"$1")
+    .replace(/\bD\s*(\d{1,2})\b/gi,"double $1")
+    .replace(/\bT\s*(\d{1,2})\b/gi,"triple $1")
     .replace(/\s+/g," ")
     .trim();
 }

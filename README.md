@@ -1,19 +1,43 @@
-# FT Darts V5.8.14 — Correctif vocal du nombre 13
+# FT Darts V5.8.15 — Ordinateur dans tous les modes
 
-Safari peut transcrire « treize » ou « 13 » sous la forme `1-3`.
+## Modifications
 
-Cette version convertit automatiquement :
+- `OUT` est affiché dans l'historique à la place de `MISS`.
+- Une fléchette simple est annoncée naturellement :
+  - S16 → « 16 »
+  - D16 → « double 16 »
+  - T20 → « triple 20 »
+  - OUT → « OUT »
 
-- `1-3` → 13
-- `1–3` → 13
-- `1—3` → 13
+## Ordinateur disponible dans tous les modes
 
-Le correctif s'applique avant l'analyse des fléchettes et ne modifie pas le fonctionnement du Tour du monde.
+Avec un seul joueur humain, active « Jouer contre l'ordinateur » puis choisis :
+
+- Facile
+- Moyen
+- Fort
+
+Modes compatibles :
+
+- 201
+- 301
+- 501
+- Cricket
+- Tour du monde
+
+En 201, 301 et 501, l'ordinateur tient compte :
+
+- du score restant ;
+- du finish libre ou double-out ;
+- du double-in ;
+- des possibilités de sortie.
+
+En Tour du monde, il vise la cible actuelle dans l'ordre.
 
 ## GitHub
 
 Remplace tous les fichiers puis ouvre :
 
-https://fablefdarts.github.io/FTDarts/?v=5814
+https://fablefdarts.github.io/FTDarts/?v=5815
 
 Teste d'abord dans un onglet privé.

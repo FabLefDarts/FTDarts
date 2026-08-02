@@ -1,5 +1,5 @@
-const C='ft-darts-v5-8-14';
-const ASSETS=['./','./index.html','./styles.css?v=5814','./app.js?v=5814','./firebase-config.js','./manifest.webmanifest','./icon.svg','./dartboard.svg'];
+const C='ft-darts-v5-8-15';
+const ASSETS=['./','./index.html','./styles.css?v=5815','./app.js?v=5815','./firebase-config.js','./manifest.webmanifest','./icon.svg','./dartboard.svg'];
 
 self.addEventListener('install',event=>{
   self.skipWaiting();
