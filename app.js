@@ -147,7 +147,7 @@ async function commitTurn(){
   }
   pending=[];await saveGame();
   if(game.winner!==null){finishMatch();announce(`${game.players[game.winner].name} gagne la partie`);voiceLoop=false;recognition?.stop()}
-  else{announceTurn();if(voiceLoop)setTimeout(startRecognition,1100)}
+  else{announceTurnAndRestart()}
 }
 $("#undoTurn").addEventListener("click",async()=>{if(!game.history.length)return;const last=game.history.at(-1);if(online&&last.snapshot.players[last.snapshot.current]?.clientId!==myClientId)return alert("Seul le joueur concerné peut annuler.");pending=last.darts;game=last.snapshot;await saveGame()});
 
@@ -184,27 +184,173 @@ function renderAchievements(){
 }
 
 const WORDS={"un":1,"une":1,"deux":2,"trois":3,"quatre":4,"cinq":5,"six":6,"sept":7,"huit":8,"neuf":9,"dix":10,"onze":11,"douze":12,"treize":13,"quatorze":14,"quinze":15,"seize":16,"dix-sept":17,"dix-huit":18,"dix-neuf":19,"vingt":20,"bull":25,"bulle":25,"centre":25};
-function normalize(t){return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[,.!?;:]/g," ").replace(/\bet\b/g," ").replace(/\s+/g," ").trim()}
+function normalize(t){
+  return t.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[,.!?;:/\\|_-]/g," ")
+    .replace(/\bvin\b/g," vingt")
+    .replace(/\bving\b/g," vingt")
+    .replace(/\btripe\b/g," triple")
+    .replace(/\bdoubl\b/g," double")
+    .replace(/\bet\b/g," ")
+    .replace(/\s+/g," ").trim()
+}
 function parseVoice(text){
-  const norm=normalize(text).replace(/dix sept/g,"dix-sept").replace(/dix huit/g,"dix-huit").replace(/dix neuf/g,"dix-neuf");
-  if(norm.includes("annule"))return{command:"undo"};if(norm.includes("recommence"))return{command:"clear"};
-  const out=[];let m="S";for(const x of norm.split(" ")){if(x==="triple"){m="T";continue}if(x==="double"){m="D";continue}if(x==="simple"){m="S";continue}const z=/^\d+$/.test(x)?+x:WORDS[x];if(z&&((z>=1&&z<=20)||z===25)){out.push({zone:z,mult:z===25&&m==="T"?"S":m});m="S";if(out.length===3)break}}return{darts:out}
+  const norm=normalize(text)
+    .replace(/dix sept/g,"dix-sept")
+    .replace(/dix huit/g,"dix-huit")
+    .replace(/dix neuf/g,"dix-neuf");
+
+  if(norm.includes("annule"))return{command:"undo"};
+  if(norm.includes("recommence")||norm.includes("efface"))return{command:"clear"};
+
+  const rawTokens=norm.split(" ");
+  const tokens=[];
+  rawTokens.forEach(token=>{
+    // Handles transcripts such as "18 14" after replacing "18/14".
+    if(/^\\d+$/.test(token)) tokens.push(token);
+    else tokens.push(token);
+  });
+
+  const out=[];
+  let m="S";
+  for(const token of tokens){
+    if(["triple","triples","t"].includes(token)){m="T";continue}
+    if(["double","doubles","d"].includes(token)){m="D";continue}
+    if(["simple","simples","s"].includes(token)){m="S";continue}
+
+    const z=/^\\d+$/.test(token)?Number(token):WORDS[token];
+    if(z&&((z>=1&&z<=20)||z===25)){
+      out.push({zone:z,mult:z===25&&m==="T"?"S":m});
+      m="S";
+      if(out.length===3)break;
+    }
+  }
+  return{darts:out,normalized:norm}
 }
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 $("#voiceButton").addEventListener("click",()=>voiceLoop?stopHandsFree():startHandsFree());
-function startHandsFree(){if(!SR)return $("#voiceStatus").textContent="Reconnaissance vocale indisponible dans ce navigateur.";voiceLoop=true;$("#voiceButton").textContent="⏹ Arrêter le mode mains libres";startRecognition()}
-function stopHandsFree(){voiceLoop=false;recognition?.stop();$("#voiceButton").textContent="🎤 Annoncer la volée";$("#voiceStatus").textContent="Mode vocal arrêté."}
-function startRecognition(){
-  if(!voiceLoop&&!options.handsFree)return;
-  if(!SR||game?.winner!==null||!myTurn())return;
-  recognition=new SR();recognition.lang="fr-FR";recognition.interimResults=false;recognition.maxAlternatives=3;
-  $("#voiceStatus").textContent=`J'écoute ${game.players[game.current].name}…`;
-  recognition.onresult=e=>{const text=e.results[0][0].transcript;$("#voiceStatus").textContent="Compris : "+text;const parsed=parseVoice(text);if(parsed.command==="undo"){$("#undoTurn").click();return}if(parsed.command==="clear"){pending=[];renderGame();return}if(parsed.darts?.length){pending=parsed.darts;renderGame();if(pending.length===3)setTimeout(commitTurn,500);else if(voiceLoop||options.handsFree)setTimeout(startRecognition,800)}};
-  recognition.onerror=()=>{if(voiceLoop||options.handsFree)setTimeout(startRecognition,900)};
-  recognition.onend=()=>{};
-  recognition.start();
+function startHandsFree(){if(!SR)return $("#voiceStatus").textContent="Reconnaissance vocale indisponible dans ce navigateur.";voiceLoop=true;$("#voiceButton").textContent="⏹ Arrêter le mode mains libres";scheduleRecognition(100)}
+function stopHandsFree(){voiceLoop=false;restartRequested=false;try{recognition?.stop()}catch{}$("#voiceButton").textContent="🎤 Annoncer la volée";$("#voiceStatus").textContent="Mode vocal arrêté."}
+let recognitionRunning=false;
+let restartRequested=false;
+
+function scheduleRecognition(delay=650){
+  if(!(voiceLoop||options.handsFree)||game?.winner!==null||!myTurn())return;
+  clearTimeout(scheduleRecognition.timer);
+  scheduleRecognition.timer=setTimeout(()=>{
+    if(recognitionRunning){restartRequested=true;return}
+    startRecognition();
+  },delay);
 }
-function announce(text){if(options.voiceAnnounce&&"speechSynthesis"in window){const u=new SpeechSynthesisUtterance(text);u.lang="fr-FR";speechSynthesis.speak(u)}}
-function announceTurn(){const p=game.players[game.current];announce(`Au tour de ${p.name}. Il reste ${p.score}`)}
+
+function startRecognition(){
+  if(!(voiceLoop||options.handsFree)||!SR||game?.winner!==null||!myTurn())return;
+  if(recognitionRunning){restartRequested=true;return}
+
+  recognition=new SR();
+  recognition.lang="fr-FR";
+  recognition.interimResults=false;
+  recognition.maxAlternatives=5;
+  recognition.continuous=false;
+
+  recognitionRunning=true;
+  restartRequested=false;
+  let receivedResult=false;
+  let committed=false;
+
+  $("#voiceStatus").textContent=`J'écoute ${game.players[game.current].name}…`;
+
+  recognition.onresult=e=>{
+    receivedResult=true;
+    const alternatives=[];
+    for(let i=0;i<e.results[0].length;i++){
+      alternatives.push(e.results[0][i].transcript);
+    }
+
+    let best=null;
+    for(const text of alternatives){
+      const parsed=parseVoice(text);
+      if(parsed.command){best={text,parsed};break}
+      if(!best||((parsed.darts?.length||0)>(best.parsed.darts?.length||0))){
+        best={text,parsed};
+      }
+    }
+
+    const text=best?.text||e.results[0][0].transcript;
+    const parsed=best?.parsed||parseVoice(text);
+    $("#voiceStatus").textContent="Compris : "+text;
+
+    if(parsed.command==="undo"){
+      committed=true;
+      $("#undoTurn").click();
+      return;
+    }
+    if(parsed.command==="clear"){
+      pending=[];
+      renderGame();
+      restartRequested=true;
+      return;
+    }
+
+    if(parsed.darts?.length){
+      pending=parsed.darts;
+      renderGame();
+
+      if(pending.length===3){
+        committed=true;
+        setTimeout(commitTurn,350);
+      }else{
+        $("#voiceStatus").textContent=`Compris : ${text} — ${pending.length}/3 fléchette(s). Répète la volée complète.`;
+        restartRequested=true;
+      }
+    }else{
+      $("#voiceStatus").textContent=`Je n'ai pas reconnu de score dans : ${text}`;
+      restartRequested=true;
+    }
+  };
+
+  recognition.onerror=e=>{
+    $("#voiceStatus").textContent="Micro interrompu. Nouvelle tentative…";
+    restartRequested=true;
+  };
+
+  recognition.onend=()=>{
+    recognitionRunning=false;
+    if(!committed&&(restartRequested||!receivedResult)){
+      scheduleRecognition(700);
+    }
+  };
+
+  try{
+    recognition.start();
+  }catch{
+    recognitionRunning=false;
+    scheduleRecognition(1000);
+  }
+}
+function announce(text){
+  return new Promise(resolve=>{
+    if(!options.voiceAnnounce||!("speechSynthesis"in window)){resolve();return}
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang="fr-FR";
+    u.rate=.95;
+    u.onend=resolve;
+    u.onerror=resolve;
+    speechSynthesis.speak(u);
+  });
+}
+async function announceTurnAndRestart(){
+  const p=game.players[game.current];
+  await announce(`Au tour de ${p.name}. Il reste ${p.score}`);
+  if((voiceLoop||options.handsFree)&&game.winner===null){
+    scheduleRecognition(350);
+  }
+}
+function announceTurn(){
+  const p=game.players[game.current];
+  return announce(`Au tour de ${p.name}. Il reste ${p.score}`);
+}
 
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js");
