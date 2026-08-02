@@ -451,12 +451,22 @@ async function commitTurn(){
   }else{
     let scoring=darts;
     if(!p.opened){const idx=darts.findIndex(d=>d.mult==="D");if(idx===-1)scoring=[];else{p.opened=true;scoring=darts.slice(idx)}}
-    const total=scoring.reduce((a,d)=>a+dartScore(d),0),remain=p.score-total,last=scoring.at(-1);
-    if(game.finishRule==="double"&&remain<=40){p.doublesAttempted++;if(remain===0&&last?.mult==="D")p.doublesHit++}
-    const bust=remain<0||(game.finishRule==="double"&&(remain===1||(remain===0&&last?.mult!=="D")));
+    let total=0,remain=p.score,last=null,winNow=false,bust=false;
+    for(const d of scoring){
+      const pts=dartScore(d);
+      const testRemain=remain-pts;
+      const testLast=d;
+      if(game.finishRule==="double"&&testRemain<=40){p.doublesAttempted++;if(testRemain===0&&testLast?.mult==="D")p.doublesHit++}
+      const testBust=testRemain<0||(game.finishRule==="double"&&(testRemain===1||(testRemain===0&&testLast?.mult!=="D")));
+      if(testBust){bust=true;break;}
+      total+=pts;
+      remain=testRemain;
+      last=testLast;
+      if(remain===0){winNow=true;break;}
+    }
     if(!bust)p.score=remain;p.turns++;p.total+=bust?0:total;p.bestTurn=Math.max(p.bestTurn,bust?0:total);
-    const label=scoring.length===0&&!p.opened?"Pas ouvert":bust?"BUST":String(total);game.history.push({name:p.name,darts,label,snapshot});
-    if(!bust&&remain===0)game.winner=pi;else game.current=oi;
+    const label=scoring.length===0&&!p.opened?"Pas ouvert":bust?"BUST":String(total);game.history.push({name:p.name,darts:usedDarts,label,snapshot});
+    if(!bust&&winNow)game.winner=pi;else game.current=oi;
   }
   pending=[];await saveGame();
   if(game.winner!==null){finishMatch();announce(`${game.players[game.winner].name} gagne la partie`);voiceLoop=false;destroyRecognition();setVoiceState(VoiceState.IDLE,"Partie terminée")}
