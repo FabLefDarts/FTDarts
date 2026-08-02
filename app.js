@@ -21,6 +21,7 @@ function profile(id){return profiles.find(p=>p.id===id)}
 function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36)}
 function code6(){return Math.random().toString(36).slice(2,8).toUpperCase()}
 function configured(){return Object.values(firebaseConfig).every(Boolean)}
+if(configured()){$("#onlineStatus").textContent="Firebase connecté — jeu en ligne prêt.";$("#onlineStatus").classList.add("online-ready")}
 async function loadFirebase(){
   if(dbApi)return true;
   if(!configured())return false;
@@ -78,7 +79,7 @@ $("#startLocal").addEventListener("click",()=>{online=false;game=createGame(sele
 $("#createOnline").addEventListener("click",async()=>{
   if(selectedPlayerIds.length!==2)return alert("La partie en ligne V4 fonctionne pour deux joueurs.");
   if(!await loadFirebase()){return $("#onlineStatus").textContent="Configure Firebase dans firebase-config.js pour activer le jeu en ligne."}
-  myClientId=uid();roomCode=code6();game=createGame(selectedPlayerIds,[myClientId,""]);online=true;roomRef=dbApi.ref(dbApi.db,"rooms/"+roomCode);await dbApi.set(roomRef,game);watchRoom();
+  myClientId=uid();roomCode=code6();game=createGame(selectedPlayerIds,[myClientId,""]);online=true;roomRef=dbApi.ref(dbApi.db,"rooms/"+roomCode);await dbApi.set(roomRef,game);watchRoom();$("#waitingText").textContent=`En attente de ${game.players[1].name}…`;
   $("#homeView").classList.add("hidden");$("#waitingView").classList.remove("hidden");$("#roomCodeDisplay").textContent=roomCode;
 });
 $("#joinOnline").addEventListener("click",async()=>{
@@ -86,7 +87,7 @@ $("#joinOnline").addEventListener("click",async()=>{
   const code=$("#joinCode").value.trim().toUpperCase();if(code.length!==6)return alert("Code invalide.");
   const r=dbApi.ref(dbApi.db,"rooms/"+code),snap=await dbApi.get(r);if(!snap.exists())return alert("Salle introuvable.");
   game=snap.val();if(game.players[1]?.clientId)return alert("Salle complète.");
-  myClientId=uid();roomCode=code;online=true;game.players[1].clientId=myClientId;roomRef=r;await dbApi.set(roomRef,game);watchRoom();openGame();
+  myClientId=uid();roomCode=code;online=true;game.players[1].clientId=myClientId;roomRef=r;await dbApi.set(roomRef,game);watchRoom();openGame();announce("Connexion à la partie réussie");
 });
 $("#cancelRoom").addEventListener("click",async()=>{if(roomRef)await dbApi.remove(roomRef);location.reload()});
 function watchRoom(){unsubscribe?.();unsubscribe=dbApi.onValue(roomRef,s=>{if(!s.exists())return;game=s.val();if(game.players[1]?.clientId&&!$("#waitingView").classList.contains("hidden"))openGame();else if(!$("#gameView").classList.contains("hidden"))renderGame()})}

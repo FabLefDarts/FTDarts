@@ -1,69 +1,40 @@
-# FT Darts V4
+# FT Darts V5 — prête à publier
 
-Version web complète sans caméra.
+Cette version contient déjà la configuration Firebase du projet FT Darts.
 
-## Inclus
+## Pour remplacer l'ancienne version sur GitHub
 
-- 201, 301, 501 et Cricket
-- Début libre ou double-in
-- Finish libre ou double-out
-- 2 à 8 joueurs en local
-- Jeu en ligne à deux avec code privé
-- Saisie visuelle Simple / Double / Triple
-- Reconnaissance vocale
-- Mode mains libres selon compatibilité du navigateur
-- Annonce vocale du score et du joueur suivant
-- Conseils de finish
-- Profils joueurs
-- Statistiques
-- Historique global
-- Classement Elo
-- Succès
-- Installation sur écran d'accueil en PWA
+1. Décompresse le ZIP.
+2. Dans ton dépôt GitHub `ft-darts`, supprime ou remplace les anciens fichiers.
+3. Envoie tous les fichiers présents dans ce dossier :
+   - index.html
+   - styles.css
+   - app.js
+   - firebase-config.js
+   - manifest.webmanifest
+   - sw.js
+   - icon.svg
+   - firebase-rules.json
+4. Valide avec `Commit changes`.
+5. Attends environ 1 à 3 minutes.
+6. Ouvre ton lien GitHub Pages dans un nouvel onglet privé ou recharge la page.
 
-## Mise en ligne sur GitHub Pages
+## Créer une partie en ligne
 
-Dépose tous les fichiers du dossier à la racine du dépôt GitHub Pages :
-- index.html
-- styles.css
-- app.js
-- firebase-config.js
-- manifest.webmanifest
-- sw.js
-- icon.svg
+### Fabien
+1. Ouvre FT Darts.
+2. Sélectionne Fabien et Thibault.
+3. Choisis le mode et les règles.
+4. Appuie sur `Créer une partie en ligne`.
+5. Envoie le code à 6 caractères à Thibault.
 
-## Activer le jeu en ligne
+### Thibault
+1. Ouvre le même lien FT Darts.
+2. Saisit le code.
+3. Appuie sur `Rejoindre`.
 
-1. Créer un projet sur Firebase.
-2. Activer Realtime Database.
-3. Ajouter une application Web.
-4. Copier la configuration Firebase dans `firebase-config.js`.
-5. Dans Realtime Database > Rules, utiliser :
+Les scores, les tours, l'historique et les moyennes sont synchronisés en temps réel.
 
-```json
-{
-  "rules": {
-    "rooms": {
-      "$room": {
-        ".read": true,
-        ".write": true
-      }
-    }
-  }
-}
-```
+## Important
 
-Ces règles sont adaptées uniquement à un prototype privé utilisé par Fabien et Thibault.
-
-## Reconnaissance vocale
-
-La reconnaissance vocale web dépend du navigateur :
-- Chrome Android : généralement le plus compatible.
-- Safari iPhone : fonctionnement plus limité et parfois interruption automatique.
-- La saisie visuelle reste toujours disponible.
-
-## Limites
-
-- Le mode en ligne V4 est prévu pour deux joueurs.
-- Les profils, statistiques, Elo et succès sont stockés localement sur chaque téléphone.
-- Pour partager les statistiques entre les deux téléphones, une prochaine évolution devra les enregistrer dans Firebase.
+Les règles Firebase actuellement utilisées conviennent à un prototype privé. Ne partagez pas largement le lien avec des inconnus.
