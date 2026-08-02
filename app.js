@@ -103,6 +103,7 @@ if(!Array.isArray(matches))matches=[];
 let selectedPlayerIds=profiles
   .slice(0,Math.min(2,profiles.length))
   .map(p=>p.id);
+let addCreatedProfileToGame=false;
 let mode="501",startRule="free",finishRule="free",starterRule="random",computerLevel="easy",mult="S";
 let options={handsFree:true,voiceAnnounce:true,finishAdvice:true};
 let game=null,pending=[],online=false,roomCode="",myClientId="",dbApi=null,roomRef=null,unsubscribe=null,recognition=null,voiceLoop=false,computerThinking=false;
@@ -237,52 +238,76 @@ function renderPlayerSelector(){
   });
 }
 
+function openProfileDialog(addToGame=false){
+  addCreatedProfileToGame=addToGame;
+  $("#profileName").value="";
+  $("#profileAvatar").value="";
+  $("#profileDialog").classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  setTimeout(()=>$("#profileName").focus(),50);
+}
+
+function closeProfileDialog(){
+  $("#profileDialog").classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  addCreatedProfileToGame=false;
+}
+
 $("#addPlayer").addEventListener("click",()=>{
   ensureProfiles();
-
   if(selectedPlayerIds.length>=8)return;
 
-  const availableProfile=profiles.find(p=>!selectedPlayerIds.includes(p.id))||profiles[0];
-  if(!availableProfile)return;
+  const availableProfile=profiles.find(p=>!selectedPlayerIds.includes(p.id));
 
-  selectedPlayerIds.push(availableProfile.id);
-  renderPlayerSelector();
+  if(availableProfile){
+    selectedPlayerIds.push(availableProfile.id);
+    renderPlayerSelector();
+    return;
+  }
+
+  openProfileDialog(true);
 });
 
 renderPlayerSelector();
 
-$("#newProfile").addEventListener("click",()=>{$("#profileName").value="";$("#profileAvatar").value="";$("#profileDialog").showModal()});
-$("#saveProfile").addEventListener("click",event=>{
-  event.preventDefault();
+$("#newProfile").addEventListener("click",()=>openProfileDialog(false));
+$("#cancelProfile").addEventListener("click",closeProfileDialog);
+document.querySelector("[data-close-profile]")?.addEventListener("click",closeProfileDialog);
 
+$("#saveProfile").addEventListener("click",()=>{
   const name=$("#profileName").value.trim();
-  if(!name)return;
+  if(!name){
+    $("#profileName").focus();
+    return;
+  }
 
   const newProfile={
     id:uid(),
     name,
     avatar:$("#profileAvatar").value.trim()||name[0].toUpperCase(),
-    elo:1000,
-    wins:0,
-    losses:0,
-    matches:0,
-    totalScore:0,
-    totalTurns:0,
-    bestTurn:0,
-    doublesHit:0,
-    doublesAttempted:0
+    elo:1000,wins:0,losses:0,matches:0,totalScore:0,totalTurns:0,
+    bestTurn:0,doublesHit:0,doublesAttempted:0
   };
 
   profiles.push(newProfile);
 
-  if(selectedPlayerIds.length===0){
-    selectedPlayerIds=[newProfile.id];
+  if(addCreatedProfileToGame||selectedPlayerIds.length===0){
+    if(!selectedPlayerIds.includes(newProfile.id)){
+      selectedPlayerIds.push(newProfile.id);
+    }
   }
 
   saveLocal();
-  $("#profileDialog").close();
+  closeProfileDialog();
   renderProfiles();
   renderPlayerSelector();
+});
+
+$("#profileName").addEventListener("keydown",event=>{
+  if(event.key==="Enter"){
+    event.preventDefault();
+    $("#saveProfile").click();
+  }
 });
 function renderProfiles(){
   $("#profilesList").innerHTML=profiles.map(p=>`<div class="profile-row"><div class="avatar">${p.avatar}</div><div><strong>${p.name}</strong><p class="hint">Elo ${p.elo} · ${p.wins} V / ${p.losses} D</p></div><button class="secondary delete-profile" data-id="${p.id}">Supprimer</button></div>`).join("");
