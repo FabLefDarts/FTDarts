@@ -1005,6 +1005,10 @@ const WORDS={
 function normalize(t){
   return t.toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    // Safari peut transcrire "treize" sous la forme "1-3".
+    // On recolle uniquement les chiffres séparés par un tiret
+    // avant de supprimer la ponctuation.
+    .replace(/\b([12])\s*[-–—]\s*([0-9])\b/g,"$1$2")
     .replace(/[,.!?;:/\\|_-]/g," ")
     .replace(/\bvin\b/g," vingt")
     .replace(/\bving\b/g," vingt")

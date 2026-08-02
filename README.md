@@ -1,18 +1,19 @@
-# FT Darts V5.8.13 — Voix commentateur et OUT
+# FT Darts V5.8.14 — Correctif vocal du nombre 13
 
-## Modifications
+Safari peut transcrire « treize » ou « 13 » sous la forme `1-3`.
 
-- Dans toutes les annonces vocales, `MISS` est maintenant prononcé `OUT`.
-- L'affichage visuel reste `MISS` afin de garder une lecture claire des fléchettes.
-- FT Darts choisit automatiquement une voix française masculine lorsqu'elle est disponible.
-- La voix est légèrement plus rapide, plus grave et plus dynamique pour se rapprocher d'un commentateur sportif.
+Cette version convertit automatiquement :
 
-La voix exacte dépend des voix installées sur l'iPhone, Android ou l'ordinateur. Une application web ne peut pas installer ni reproduire exactement la voix d'un commentateur réel.
+- `1-3` → 13
+- `1–3` → 13
+- `1—3` → 13
+
+Le correctif s'applique avant l'analyse des fléchettes et ne modifie pas le fonctionnement du Tour du monde.
 
 ## GitHub
 
 Remplace tous les fichiers puis ouvre :
 
-https://fablefdarts.github.io/FTDarts/?v=5813
+https://fablefdarts.github.io/FTDarts/?v=5814
 
 Teste d'abord dans un onglet privé.
