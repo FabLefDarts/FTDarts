@@ -171,7 +171,10 @@ function newPlayer(id,clientId=""){
     score:startScore(),opened:startRule==="free",
     turns:0,total:0,bestTurn:0,doublesHit:0,doublesAttempted:0,
     marks:Object.fromEntries(TARGETS.map(t=>[t,0])),
-    worldIndex:0
+    worldIndex:0,
+    worldDarts:0,
+    worldHits:0,
+    worldMisses:0
   }
 }
 function createGame(ids,clients=[]){
@@ -357,6 +360,33 @@ function renderGame(){
   $("#checkoutAdvice").textContent=game.winner!==null?"Terminé":advice();
   $("#entryPanel").classList.toggle("hidden",!myTurn()||game.winner!==null);
   $("#endGameActions").classList.toggle("hidden",game.winner===null);
+
+  const showWorldStats=game.winner!==null&&game.mode==="world";
+  $("#worldEndStats").classList.toggle("hidden",!showWorldStats);
+  if(showWorldStats){
+    $("#worldEndStatsContent").innerHTML=game.players.map((p,i)=>{
+      const darts=p.worldDarts||0;
+      const hits=p.worldHits||0;
+      const misses=p.worldMisses||0;
+      const accuracy=darts?Math.round((hits/darts)*100):0;
+      const completed=p.worldIndex>=WORLD_TARGETS.length;
+      return `<div class="world-result-player ${i===game.winner?"winner":""}">
+        <div class="world-result-title">
+          <strong>${p.name}</strong>
+          <span class="pill">${completed?"Tour terminé":`${p.worldIndex}/21 cibles`}</span>
+        </div>
+        <div class="world-result-grid">
+          <div><span>Fléchettes</span><strong>${darts}</strong></div>
+          <div><span>Volées</span><strong>${p.turns||0}</strong></div>
+          <div><span>Cibles réussies</span><strong>${hits}</strong></div>
+          <div><span>Fléchettes ratées</span><strong>${misses}</strong></div>
+          <div><span>Réussite</span><strong>${accuracy} %</strong></div>
+          <div><span>Moyenne</span><strong>${darts?(darts/Math.max(1,hits)).toFixed(1):"—"} fl./cible</strong></div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
   $("#voiceButton").disabled=!myTurn()||game.winner!==null;
   $("#scoreboard").classList.toggle("hidden",game.mode==="cricket"||game.mode==="world");
   $("#cricketBoard").classList.toggle("hidden",game.mode!=="cricket");
@@ -439,22 +469,35 @@ async function commitTurn(){
   const snapshot=JSON.parse(JSON.stringify(game)),pi=game.current,oi=(pi+1)%game.players.length,p=game.players[pi],darts=JSON.parse(JSON.stringify(pending));
   if(game.mode==="world"){
     let advances=0;
-    darts.forEach(d=>{
+    const countedDarts=[];
+
+    for(const d of darts){
       const target=WORLD_TARGETS[p.worldIndex];
-      if(target===undefined)return;
+      if(target===undefined)break;
+
+      p.worldDarts=(p.worldDarts||0)+1;
+      countedDarts.push(d);
+
       const hit=target===25?d.zone===25:d.zone===target;
       if(hit){
         p.worldIndex++;
+        p.worldHits=(p.worldHits||0)+1;
         advances++;
+      }else{
+        p.worldMisses=(p.worldMisses||0)+1;
       }
-    });
+
+      // La partie s'arrête exactement sur la fléchette qui valide la Bull.
+      if(p.worldIndex>=WORLD_TARGETS.length)break;
+    }
+
     p.turns++;
     p.total+=advances;
     p.bestTurn=Math.max(p.bestTurn,advances);
     p.score=p.worldIndex;
-    const nextTarget=WORLD_TARGETS[p.worldIndex];
     const label=advances===0?"Aucune cible":advances===1?"1 étape":`${advances} étapes`;
-    game.history.push({name:p.name,darts,label,snapshot});
+    game.history.push({name:p.name,darts:countedDarts,label,snapshot});
+
     if(p.worldIndex>=WORLD_TARGETS.length)game.winner=pi;
     else game.current=oi;
   }else if(game.mode==="cricket"){
@@ -538,6 +581,23 @@ function normalize(t){
     .replace(/\bet\b/g," ")
     .replace(/\s+/g," ").trim()
 }
+function splitWorldNumberToken(token,slotsLeft){
+  if(!/^\d+$/.test(token))return[];
+
+  // En Tour du monde, Safari peut transformer "1 / 0 / 2" en "102".
+  // Pour un bloc de 2 ou 3 chiffres et autant de places disponibles,
+  // chaque chiffre représente une fléchette indépendante.
+  if(token.length>=2&&token.length<=3&&token.length<=slotsLeft){
+    return token.split("").map(Number);
+  }
+
+  const number=Number(token);
+  if(number>=0&&number<=20)return[number];
+  if(number===25||number===50)return[number];
+
+  return[];
+}
+
 function parseVoice(text){
   const norm=normalize(text)
     .replace(/dix sept/g,"dix-sept")
@@ -557,21 +617,31 @@ function parseVoice(text){
     if(["double","doubles","d"].includes(token)){multiplier="D";continue}
     if(["simple","simples","s"].includes(token)){multiplier="S";continue}
 
-    const value=/^\d+$/.test(token)?Number(token):WORDS[token];
-    if(value===undefined||value===null)continue;
+    let values;
 
-    if(value===0){
-      out.push({zone:0,mult:"S"});
-      multiplier="S";
-    }else if(value===50){
-      out.push({zone:25,mult:"D"});
-      multiplier="S";
-    }else if(value===25){
-      out.push({zone:25,mult:"S"});
-      multiplier="S";
-    }else if(value>=1&&value<=20){
-      out.push({zone:value,mult:multiplier});
-      multiplier="S";
+    if(game?.mode==="world"&&/^\d+$/.test(token)){
+      values=splitWorldNumberToken(token,3-out.length);
+    }else{
+      const value=/^\d+$/.test(token)?Number(token):WORDS[token];
+      values=value===undefined||value===null?[]:[value];
+    }
+
+    for(const value of values){
+      if(value===0){
+        out.push({zone:0,mult:"S"});
+        multiplier="S";
+      }else if(value===50){
+        out.push({zone:25,mult:"D"});
+        multiplier="S";
+      }else if(value===25){
+        out.push({zone:25,mult:"S"});
+        multiplier="S";
+      }else if(value>=1&&value<=20){
+        out.push({zone:value,mult:multiplier});
+        multiplier="S";
+      }
+
+      if(out.length===3)break;
     }
 
     if(out.length===3)break;

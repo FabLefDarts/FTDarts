@@ -80,3 +80,13 @@ box-shadow:inset 0 0 0 8px #252c37}
 .end-game-actions button{flex:1;padding:16px;border-radius:14px;font-size:20px;font-weight:700}
 
 .remove:disabled{opacity:.3;cursor:not-allowed}
+
+.world-end-stats{margin-top:12px}
+.world-end-stats h2{text-align:center;margin-bottom:12px}
+.world-result-player{padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--panel2);margin-top:10px}
+.world-result-player.winner{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+.world-result-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.world-result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.world-result-grid div{padding:10px;border-radius:10px;background:rgba(255,255,255,.035)}
+.world-result-grid span{display:block;color:var(--muted);font-size:12px;margin-bottom:3px}
+.world-result-grid strong{font-size:18px}

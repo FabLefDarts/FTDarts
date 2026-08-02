@@ -1,24 +1,18 @@
-# FT Darts V5.8.5 — Mode solo
+# FT Darts V5.8.7 — Statistiques Tour du monde
 
-Pour jouer seul :
-1. Supprime le deuxième joueur avec la croix.
-2. Garde uniquement ton profil.
-3. Choisis le mode.
-4. Appuie sur « Jouer sur ce téléphone ».
+À la fin d'un Tour du monde, l'application affiche pour chaque joueur :
 
-Le badge SOLO apparaît pendant la partie.
+- nombre exact de fléchettes utilisées ;
+- nombre de volées ;
+- nombre de cibles validées ;
+- nombre de fléchettes ratées ;
+- taux de réussite ;
+- moyenne de fléchettes par cible.
 
-Modes compatibles :
-- 201
-- 301
-- 501
-- Cricket
-- Tour du monde
-
-Le jeu en ligne reste limité à exactement deux joueurs.
+Le comptage s'arrête exactement sur la fléchette qui valide la Bull finale.
 
 ## GitHub
 
-Remplace tous les fichiers par ceux de cette archive, puis ouvre :
+Remplace tous les fichiers puis ouvre :
 
-https://fablefdarts.github.io/FTDarts/?v=585
+https://fablefdarts.github.io/FTDarts/?v=587
